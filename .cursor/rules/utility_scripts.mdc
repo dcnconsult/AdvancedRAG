@@ -1,0 +1,531 @@
+---
+description: Guidelines for creating utility scripts and mock data with proper prompts and validation
+globs: scripts/**/*, utils/**/*, __mocks__/**/*, test-utils/**/*
+alwaysApply: true
+---
+
+# Utility Scripts & Mock Data Creation Guidelines
+
+## **Utility Script Creation Process**
+
+### **Before Creating Utility Scripts:**
+1. **Prompt for clarification** on requirements and scope
+2. **Search existing scripts** for similar functionality
+3. **Evaluate if existing utilities** can be extended
+4. **Determine if script is truly necessary** or if functionality can be integrated elsewhere
+5. **Document the purpose** and expected usage
+
+### **Required Prompts Before Creation:**
+
+#### **For Utility Scripts:**
+```
+Before creating this utility script, please clarify:
+
+1. **Purpose**: What specific problem does this script solve?
+2. **Scope**: What functionality should it include/exclude?
+3. **Usage**: How will developers use this script?
+4. **Dependencies**: What existing code/utilities will it depend on?
+5. **Integration**: How does it fit with existing Task Master workflow?
+6. **Maintenance**: Who will maintain and update this script?
+7. **Testing**: How will the script be tested and validated?
+8. **Documentation**: What documentation is needed for usage?
+
+Please provide these details before proceeding with script creation.
+```
+
+#### **For Mock Data:**
+```
+Before creating mock data, please clarify:
+
+1. **Purpose**: What testing scenarios does this mock data support?
+2. **Scope**: What data structures and relationships are needed?
+3. **Realism**: How realistic should the mock data be?
+4. **Variety**: What edge cases and variations should be included?
+5. **Maintenance**: How will mock data be kept up-to-date?
+6. **Usage**: Where and how will this mock data be used?
+7. **Validation**: How will mock data be validated for correctness?
+8. **PRD Alignment**: How does this support PRD testing requirements?
+
+Please provide these details before proceeding with mock data creation.
+```
+
+## **Utility Script Standards**
+
+### **Script Structure Requirements:**
+```typescript
+/**
+ * @fileoverview [Brief description of script purpose]
+ * 
+ * This script [detailed description of functionality and usage].
+ * 
+ * Usage:
+ *   npm run [script-name] [options]
+ *   node scripts/[script-name].js [options]
+ * 
+ * Options:
+ *   --help, -h          Show help information
+ *   --verbose, -v       Enable verbose logging
+ *   --dry-run, -d       Show what would be done without executing
+ * 
+ * Examples:
+ *   npm run [script-name] -- --verbose
+ *   node scripts/[script-name].js --dry-run
+ * 
+ * @author RAG Showcase Team
+ * @since 1.0.0
+ * @see {@link RagShowcasePRD.md} [relevant PRD section]
+ */
+```
+
+### **Error Handling Standards:**
+```typescript
+/**
+ * Utility script with proper error handling and logging
+ */
+import { logger } from '../utils/logger';
+import { validateConfig } from '../utils/validation';
+
+class UtilityScript {
+  private config: ScriptConfig;
+  
+  constructor(config: ScriptConfig) {
+    this.config = this.validateAndNormalizeConfig(config);
+  }
+  
+  async execute(): Promise<void> {
+    try {
+      logger.info('Starting utility script execution');
+      
+      // Validate prerequisites
+      await this.validatePrerequisites();
+      
+      // Execute main functionality
+      await this.performMainTask();
+      
+      logger.info('Utility script completed successfully');
+    } catch (error) {
+      logger.error('Utility script failed:', error);
+      
+      // Provide helpful error messages
+      if (error instanceof ValidationError) {
+        logger.error('Validation failed:', error.details);
+        process.exit(1);
+      }
+      
+      if (error instanceof ConfigurationError) {
+        logger.error('Configuration error:', error.message);
+        logger.info('Run with --help for usage information');
+        process.exit(1);
+      }
+      
+      // Generic error handling
+      logger.error('Unexpected error occurred');
+      process.exit(1);
+    }
+  }
+  
+  private validateAndNormalizeConfig(config: ScriptConfig): ScriptConfig {
+    try {
+      return validateConfig(config);
+    } catch (error) {
+      throw new ConfigurationError(`Invalid configuration: ${error.message}`);
+    }
+  }
+}
+```
+
+### **Configuration Management:**
+```typescript
+/**
+ * Configuration validation and management for utility scripts
+ */
+interface ScriptConfig {
+  /** Input source for the script */
+  input: string;
+  
+  /** Output destination for the script */
+  output: string;
+  
+  /** Verbose logging enabled */
+  verbose?: boolean;
+  
+  /** Dry run mode - show what would be done */
+  dryRun?: boolean;
+}
+
+export const validateConfig = (config: ScriptConfig): ScriptConfig => {
+  const errors: string[] = [];
+  
+  if (!config.input) {
+    errors.push('Input source is required');
+  }
+  
+  if (!config.output) {
+    errors.push('Output destination is required');
+  }
+  
+  if (errors.length > 0) {
+    throw new ValidationError(errors.join(', '));
+  }
+  
+  return {
+    ...config,
+    verbose: config.verbose || false,
+    dryRun: config.dryRun || false
+  };
+};
+```
+
+## **Mock Data Creation Standards**
+
+### **Mock Data Structure Requirements:**
+```typescript
+/**
+ * @fileoverview Mock data for RAG query testing and development
+ * 
+ * This file contains realistic mock data that supports testing scenarios
+ * specified in RagShowcasePRD.md Section 3.3 (Testing Requirements).
+ * 
+ * Mock data includes:
+ * - Sample RAG results for all techniques
+ * - Various query scenarios and edge cases
+ * - Realistic metadata and source chunks
+ * - Performance test data
+ * 
+ * @author RAG Showcase Team
+ * @since 1.0.0
+ * @see {@link RagShowcasePRD.md} Section 3.3 for testing requirements
+ */
+
+/**
+ * Mock RAG results for testing and development
+ * 
+ * Includes realistic data for all RAG techniques with proper metadata
+ * and source chunks as specified in PRD Section 3.1.
+ */
+export const mockRAGResults: Record<RAGTechnique, RAGResult[]> = {
+  GraphRAG: [
+    {
+      technique_name: 'GraphRAG',
+      response_text: 'Based on the knowledge graph analysis, artificial intelligence refers to...',
+      source_chunks: [
+        {
+          id: 'doc:ai-101#p1',
+          title: 'Introduction to Artificial Intelligence',
+          snippet: 'Artificial intelligence (AI) is intelligence demonstrated by machines...',
+          score: 0.95,
+          metadata: {
+            entity_types: ['CONCEPT', 'TECHNOLOGY'],
+            graph_connections: ['machine_learning', 'neural_networks']
+          }
+        }
+      ],
+      metadata: {
+        reasoning_path: [
+          { step: 'entity_extraction', entities: ['artificial_intelligence', 'AI'] },
+          { step: 'graph_traversal', path: ['AI', 'machine_learning', 'neural_networks'] },
+          { step: 'synthesis', confidence: 0.92 }
+        ],
+        latency_ms: 3450,
+        token_usage: { prompt: 1200, completion: 450 }
+      }
+    }
+  ],
+  
+  AgenticRAG: [
+    {
+      technique_name: 'AgenticRAG',
+      response_text: 'Let me analyze this query step by step...',
+      source_chunks: [
+        {
+          id: 'doc:ai-research#p3',
+          title: 'Recent AI Research Developments',
+          snippet: 'Recent advances in artificial intelligence have shown...',
+          score: 0.88,
+          metadata: {
+            retrieval_method: 'semantic_search',
+            relevance_score: 0.88
+          }
+        }
+      ],
+      metadata: {
+        agent_steps: [
+          { step: 'query_analysis', action: 'analyze_query_intent', result: 'success' },
+          { step: 'information_retrieval', action: 'search_knowledge_base', result: 'success' },
+          { step: 'reasoning', action: 'synthesize_response', result: 'success' },
+          { step: 'validation', action: 'verify_accuracy', result: 'success' }
+        ],
+        latency_ms: 5670,
+        token_usage: { prompt: 1800, completion: 680 }
+      }
+    }
+  ]
+};
+```
+
+### **Mock Data Validation:**
+```typescript
+/**
+ * Validation utilities for mock data
+ */
+export const validateMockRAGResult = (result: RAGResult): boolean => {
+  const errors: string[] = [];
+  
+  // Validate required fields
+  if (!result.technique_name) {
+    errors.push('technique_name is required');
+  }
+  
+  if (!result.response_text) {
+    errors.push('response_text is required');
+  }
+  
+  if (!Array.isArray(result.source_chunks)) {
+    errors.push('source_chunks must be an array');
+  }
+  
+  // Validate source chunks
+  result.source_chunks?.forEach((chunk, index) => {
+    if (!chunk.id) {
+      errors.push(`source_chunks[${index}].id is required`);
+    }
+    if (!chunk.title) {
+      errors.push(`source_chunks[${index}].title is required`);
+    }
+    if (!chunk.snippet) {
+      errors.push(`source_chunks[${index}].snippet is required`);
+    }
+    if (typeof chunk.score !== 'number' || chunk.score < 0 || chunk.score > 1) {
+      errors.push(`source_chunks[${index}].score must be a number between 0 and 1`);
+    }
+  });
+  
+  // Validate metadata
+  if (!result.metadata) {
+    errors.push('metadata is required');
+  }
+  
+  if (result.metadata && typeof result.metadata.latency_ms !== 'number') {
+    errors.push('metadata.latency_ms must be a number');
+  }
+  
+  if (result.metadata && !result.metadata.token_usage) {
+    errors.push('metadata.token_usage is required');
+  }
+  
+  if (errors.length > 0) {
+    console.error('Mock data validation failed:', errors);
+    return false;
+  }
+  
+  return true;
+};
+
+/**
+ * Validate all mock data on import
+ */
+export const validateAllMockData = (): boolean => {
+  const allResults = Object.values(mockRAGResults).flat();
+  
+  return allResults.every(result => {
+    const isValid = validateMockRAGResult(result);
+    if (!isValid) {
+      console.error(`Invalid mock data for technique: ${result.technique_name}`);
+    }
+    return isValid;
+  });
+};
+```
+
+## **Test Utilities Standards**
+
+### **Test Helper Creation:**
+```typescript
+/**
+ * @fileoverview Test utilities for RAG application testing
+ * 
+ * Provides reusable test helpers and utilities for testing RAG functionality
+ * as specified in RagShowcasePRD.md Section 3.3.
+ * 
+ * @author RAG Showcase Team
+ * @since 1.0.0
+ * @see {@link RagShowcasePRD.md} Section 3.3 for testing requirements
+ */
+
+/**
+ * Creates a mock Supabase client for testing
+ * 
+ * @param overrides - Optional overrides for specific methods
+ * @returns Mock Supabase client with realistic behavior
+ */
+export const createMockSupabaseClient = (overrides: Partial<SupabaseClient> = {}): SupabaseClient => {
+  const defaultMock: SupabaseClient = {
+    auth: {
+      getSession: jest.fn().mockResolvedValue({
+        data: { session: null },
+        error: null
+      }),
+      signUp: jest.fn().mockResolvedValue({
+        data: { user: null, session: null },
+        error: null
+      }),
+      signInWithPassword: jest.fn().mockResolvedValue({
+        data: { user: null, session: null },
+        error: null
+      }),
+      signOut: jest.fn().mockResolvedValue({ error: null })
+    },
+    
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      insert: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnThis(),
+      delete: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({ data: null, error: null }),
+      then: jest.fn().mockResolvedValue({ data: [], error: null })
+    }),
+    
+    storage: {
+      from: jest.fn().mockReturnValue({
+        upload: jest.fn().mockResolvedValue({
+          data: { path: 'test-file.pdf' },
+          error: null
+        }),
+        getPublicUrl: jest.fn().mockReturnValue({
+          data: { publicUrl: 'https://example.com/test-file.pdf' }
+        })
+      })
+    },
+    
+    functions: {
+      invoke: jest.fn().mockResolvedValue({
+        data: mockRAGResults,
+        error: null
+      })
+    }
+  };
+  
+  return { ...defaultMock, ...overrides };
+};
+```
+
+### **Performance Testing Utilities:**
+```typescript
+/**
+ * Performance testing utilities for PRD compliance validation
+ * 
+ * Tests performance requirements from RagShowcasePRD.md Section 3.3:
+ * - ≤20s end-to-end query execution
+ * - ≤60s for first-time user to complete comparison
+ */
+export const performanceTestUtils = {
+  /**
+   * Measure execution time of async function
+   */
+  async measureExecutionTime<T>(fn: () => Promise<T>): Promise<{ result: T; executionTime: number }> {
+    const startTime = performance.now();
+    const result = await fn();
+    const executionTime = performance.now() - startTime;
+    
+    return { result, executionTime };
+  },
+  
+  /**
+   * Validate performance against PRD requirements
+   */
+  validatePRDPerformance(executionTime: number, requirement: 'query' | 'first-time-user'): boolean {
+    const limits = {
+      query: 20000, // 20 seconds
+      'first-time-user': 60000 // 60 seconds
+    };
+    
+    const limit = limits[requirement];
+    const isValid = executionTime <= limit;
+    
+    if (!isValid) {
+      console.warn(
+        `Performance requirement not met for ${requirement}: ` +
+        `${executionTime}ms > ${limit}ms`
+      );
+    }
+    
+    return isValid;
+  },
+  
+  /**
+   * Create performance test scenario
+   */
+  createPerformanceTestScenario(name: string, fn: () => Promise<void>) {
+    return {
+      name,
+      async execute(): Promise<{ passed: boolean; executionTime: number }> {
+        const { executionTime } = await this.measureExecutionTime(fn);
+        const passed = this.validatePRDPerformance(executionTime, 'query');
+        
+        return { passed, executionTime };
+      }
+    };
+  }
+};
+```
+
+## **Documentation Requirements**
+
+### **Script Documentation:**
+- **Purpose and usage** clearly explained
+- **Command-line options** documented
+- **Examples** provided for common use cases
+- **Error scenarios** documented with solutions
+- **Integration** with existing workflow explained
+- **Maintenance** responsibilities outlined
+
+### **Mock Data Documentation:**
+- **Testing scenarios** supported by mock data
+- **Data relationships** and structure explained
+- **Edge cases** covered by mock data
+- **Validation** requirements documented
+- **Usage examples** provided
+- **Maintenance** schedule and responsibilities
+
+## **Integration with Task Master**
+
+### **Script Integration:**
+```bash
+# Add utility scripts to package.json
+{
+  "scripts": {
+    "generate-mock-data": "node scripts/generate-mock-data.js",
+    "validate-mock-data": "node scripts/validate-mock-data.js",
+    "performance-test": "node scripts/performance-test.js"
+  }
+}
+```
+
+### **Task Master Integration:**
+```bash
+# Update tasks when creating new utilities
+task-master update-task --id=<task-id> --prompt="Added utility script for mock data generation to support testing requirements from PRD Section 3.3"
+```
+
+## **Anti-Patterns to Avoid**
+
+### **❌ DON'T:**
+- Create utility scripts without prompting for requirements
+- Create mock data without understanding testing needs
+- Duplicate existing utility functionality
+- Create overly complex utility scripts
+- Ignore PRD testing requirements
+- Create mock data that doesn't reflect real scenarios
+
+### **✅ DO:**
+- Prompt for detailed requirements before creation
+- Search existing utilities before creating new ones
+- Create realistic mock data that supports PRD testing
+- Document all utilities thoroughly
+- Integrate utilities with Task Master workflow
+- Validate mock data for correctness and completeness
+
+---
+
+**Remember:** Utility scripts and mock data should solve real problems and support PRD requirements. Always prompt for requirements and validate necessity before creation.

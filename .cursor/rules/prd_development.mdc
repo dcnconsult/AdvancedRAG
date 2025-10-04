@@ -1,0 +1,144 @@
+---
+description: PRD-driven development methodology with RagShowcasePRD.md as source of truth
+globs: **/*
+alwaysApply: true
+---
+
+# PRD-Driven Development Rules
+
+## **Master Source of Truth**
+- **RagShowcasePRD.md** is the authoritative specification for all development decisions
+- All tasks, features, and implementations must align with PRD requirements
+- PRD sections must be referenced when making architectural decisions
+- Implementation drift must be handled through PRD updates and task synchronization
+
+## **PRD-Task Alignment Requirements**
+
+### **Before Starting Any Task:**
+- Review the PRD section the task addresses
+- Ensure task details align with PRD specifications  
+- Verify acceptance criteria match PRD requirements
+- Cross-reference with PRD performance requirements (NFRs)
+
+### **Task Validation Checklist:**
+- [ ] Implementation matches PRD requirements
+- [ ] Acceptance criteria align with PRD specifications
+- [ ] Performance requirements (NFRs) are met
+- [ ] User stories and epics are satisfied
+- [ ] Technical architecture follows PRD design
+
+### **PRD Reference Patterns:**
+```bash
+# Always reference PRD sections when updating tasks
+task-master update-task --id=<id> --prompt="Updated per PRD Section 3.2.3 requirements"
+
+# Reference PRD when handling implementation drift
+task-master update --from=<id> --prompt="Changed approach based on PRD Section X.Y requirements"
+```
+
+## **PRD Compliance Validation**
+
+### **Implementation Drift Handling:**
+1. **When implementation differs from PRD:**
+   - Update tasks to reflect PRD-compliant approach
+   - Reference specific PRD sections in task updates
+   - Maintain traceability between PRD and implementation
+
+2. **PRD Updates:**
+   - Update PRD document first
+   - Regenerate tasks from updated PRD if needed
+   - Review and adjust existing tasks
+   - Update task dependencies as needed
+
+### **Cursor AI Context Requirements:**
+```
+Always provide PRD context when asking for assistance:
+
+"I'm working on Task 3: 'Develop User Authentication and Session Management'
+This task addresses PRD Section 2.1 (Epic 1: Onboarding & Setup) and Section 3.2 (Supabase Implementation).
+
+PRD Requirements:
+- Optional email/password signup for session saving
+- Session persistence using Supabase Auth
+- User profile storage in users table
+- Analytics events for KPIs (session_created)
+
+Please help me implement this following the PRD specifications exactly."
+```
+
+## **PRD Section Mapping**
+
+### **Core PRD Sections:**
+- **Section 2.1**: Epic 1: Onboarding & Setup → Tasks 1-3
+- **Section 2.2**: Epic 2: Query Configuration → Tasks 4-7
+- **Section 2.3**: Epic 3: Results Visualization → Tasks 6-8
+- **Section 2.4**: Epic 4: Session Management → Tasks 3, 9
+- **Section 3.1**: System Architecture → All tasks
+- **Section 3.2**: Supabase Implementation → Tasks 1-2, 5-6
+- **Section 3.3**: Non-Functional Requirements → Performance validation
+
+### **Performance Requirements (NFRs):**
+- **≤ 20s** end-to-end query execution
+- **≤ 60s** for first-time user to complete comparison
+- **Web-first** comparison experience with responsive fallback
+- **≤ 100 documents** in preloaded domain support
+
+## **Documentation Standards**
+
+### **PRD Traceability:**
+- Document which PRD section each task addresses
+- Maintain links between PRD requirements and implementation
+- Update documentation when PRD changes
+- Ensure all features trace back to PRD specifications
+
+### **Implementation Documentation:**
+- Reference PRD sections in code comments
+- Document PRD compliance in README files
+- Maintain PRD-task mapping in project documentation
+- Update AGENTS.md when PRD methodology changes
+
+## **Quality Assurance**
+
+### **PRD Compliance Testing:**
+- Test against PRD acceptance criteria
+- Validate performance requirements (NFRs)
+- Verify user stories are satisfied
+- Ensure technical architecture matches PRD
+
+### **Continuous Validation:**
+- Regular PRD-task alignment reviews
+- Implementation drift detection
+- PRD update impact assessment
+- Task dependency validation against PRD
+
+## **Anti-Patterns to Avoid**
+
+### **❌ DON'T:**
+- Implement features not specified in PRD
+- Ignore PRD performance requirements
+- Create tasks without PRD traceability
+- Make architectural decisions without PRD reference
+
+### **✅ DO:**
+- Always reference PRD sections in task work
+- Validate implementations against PRD specifications
+- Update tasks when PRD requirements change
+- Maintain clear PRD-implementation traceability
+
+## **Integration with Task Master**
+
+### **Task Generation:**
+- Tasks must be generated from PRD specifications
+- Each task must reference relevant PRD sections
+- Dependencies must align with PRD logical flow
+- Task details must match PRD requirements
+
+### **Progress Tracking:**
+- Mark tasks complete only when PRD requirements are met
+- Update tasks based on PRD changes
+- Validate task completion against PRD acceptance criteria
+- Maintain PRD-task synchronization throughout development
+
+---
+
+**Remember:** The PRD is not just a starting point—it's the living specification that guides every development decision. Every line of code should trace back to a PRD requirement.

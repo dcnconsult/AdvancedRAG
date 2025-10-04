@@ -1,0 +1,303 @@
+---
+description: Minimal coding techniques with strong documentation standards
+globs: src/**/*.{ts,tsx,js,jsx}, tests/**/*.{ts,tsx,js,jsx}
+alwaysApply: true
+---
+
+# Minimal Coding & Documentation Standards
+
+## **Minimal Coding Philosophy**
+
+### **Core Principles:**
+- **Prefer refactoring existing code** over creating new modules when refactor limits allow
+- **Use existing patterns** and utilities before creating new ones
+- **Minimize code complexity** while maximizing functionality
+- **Strong documentation** compensates for minimal code complexity
+- **Self-documenting code** through clear naming and structure
+
+## **Existing Code Reuse Requirements**
+
+### **Before Creating New Code:**
+1. **Search existing codebase** for similar functionality
+2. **Evaluate refactoring opportunities** in existing modules
+3. **Consider extending existing utilities** rather than creating new ones
+4. **Check if existing patterns** can be adapted for new requirements
+
+### **Refactoring Guidelines:**
+```typescript
+// ✅ DO: Refactor existing utility to be more generic
+export const formatRAGMetadata = (metadata: RAGMetadata, format: 'compact' | 'detailed' = 'detailed') => {
+  // Extend existing function rather than creating new one
+}
+
+// ❌ DON'T: Create new function when existing one can be extended
+export const formatRAGMetadataCompact = (metadata: RAGMetadata) => {
+  // Duplicate functionality
+}
+```
+
+### **Code Reuse Patterns:**
+- **Extend existing hooks** rather than creating new ones
+- **Reuse existing components** with props for customization
+- **Leverage existing services** by adding new methods
+- **Use existing types** and extend them when needed
+
+## **Documentation Standards**
+
+### **Code Documentation Requirements:**
+- **Every public function** must have JSDoc comments
+- **Complex logic** must be explained with inline comments
+- **Type definitions** must include usage examples
+- **Component props** must be documented with examples
+
+### **JSDoc Standards:**
+```typescript
+/**
+ * Executes a RAG query using the specified technique and configuration.
+ * 
+ * @param technique - The RAG technique to use (GraphRAG, AgenticRAG, etc.)
+ * @param config - Query configuration including domain, query text, and options
+ * @param options - Additional execution options (timeout, retries, etc.)
+ * @returns Promise resolving to RAG results with source chunks and metadata
+ * 
+ * @example
+ * ```typescript
+ * const results = await executeRAGQuery('GraphRAG', {
+ *   domain_id: 1,
+ *   query_text: 'What is artificial intelligence?',
+ *   techniques: ['GraphRAG']
+ * });
+ * ```
+ * 
+ * @throws {RAGQueryError} When query execution fails or times out
+ * @see {@link RAGResult} for result structure
+ * @see {@link QueryConfig} for configuration options
+ */
+export async function executeRAGQuery(
+  technique: RAGTechnique,
+  config: QueryConfig,
+  options?: ExecutionOptions
+): Promise<RAGResult[]> {
+  // Implementation with clear inline comments
+}
+```
+
+### **Inline Documentation:**
+```typescript
+// Handle different RAG technique response formats
+const normalizedResults = results.map(result => {
+  // GraphRAG returns graph traversal metadata
+  if (result.technique_name === 'GraphRAG') {
+    return normalizeGraphRAGResult(result);
+  }
+  
+  // AgenticRAG returns step-by-step reasoning
+  if (result.technique_name === 'AgenticRAG') {
+    return normalizeAgenticRAGResult(result);
+  }
+  
+  // Default normalization for other techniques
+  return normalizeGenericResult(result);
+});
+```
+
+## **Component Documentation**
+
+### **React Component Standards:**
+```typescript
+/**
+ * Displays RAG query results with technique-specific metadata visualization.
+ * 
+ * Supports side-by-side comparison and progressive disclosure of complex metadata.
+ * 
+ * @param results - Array of RAG results from different techniques
+ * @param onSourceClick - Callback when source chunk is clicked
+ * @param comparisonMode - Display mode for results comparison
+ * 
+ * @example
+ * ```tsx
+ * <RAGResultsDisplay 
+ *   results={ragResults}
+ *   onSourceClick={(source) => showSourceDetails(source)}
+ *   comparisonMode="side-by-side"
+ * />
+ * ```
+ */
+interface RAGResultsDisplayProps {
+  /** Array of RAG results from different techniques */
+  results: RAGResult[];
+  /** Callback when source chunk is clicked for detailed view */
+  onSourceClick: (source: SourceChunk) => void;
+  /** Display mode for results comparison */
+  comparisonMode?: 'tabs' | 'side-by-side' | 'accordion';
+}
+```
+
+## **Type Documentation**
+
+### **Interface Documentation:**
+```typescript
+/**
+ * Configuration for RAG query execution.
+ * 
+ * Defines the domain, query text, and selected techniques for comparison.
+ * All fields are required for proper query execution.
+ */
+interface QueryConfig {
+  /** Unique identifier for the knowledge domain */
+  domain_id: number;
+  
+  /** The user's query text to be processed by RAG techniques */
+  query_text: string;
+  
+  /** Array of RAG techniques to execute for comparison */
+  techniques: RAGTechnique[];
+  
+  /** Optional query parameters for technique-specific customization */
+  parameters?: Record<string, any>;
+}
+```
+
+## **Error Handling Documentation**
+
+### **Error Class Documentation:**
+```typescript
+/**
+ * Custom error class for RAG query execution failures.
+ * 
+ * Provides structured error information including error codes,
+ * technique context, and retry recommendations.
+ * 
+ * @example
+ * ```typescript
+ * try {
+ *   await executeRAGQuery('GraphRAG', config);
+ * } catch (error) {
+ *   if (error instanceof RAGQueryError) {
+ *     console.error(`RAG query failed: ${error.message}`);
+ *     console.error(`Error code: ${error.code}`);
+ *     console.error(`Technique: ${error.technique}`);
+ *   }
+ * }
+ * ```
+ */
+export class RAGQueryError extends Error {
+  /**
+   * Error code for programmatic error handling
+   */
+  public readonly code: string;
+  
+  /**
+   * RAG technique that caused the error
+   */
+  public readonly technique: string;
+  
+  /**
+   * Whether the error is retryable
+   */
+  public readonly retryable: boolean;
+}
+```
+
+## **File-Level Documentation**
+
+### **File Header Standards:**
+```typescript
+/**
+ * @fileoverview RAG query execution service with technique-specific implementations.
+ * 
+ * This module provides the core functionality for executing RAG queries using
+ * different techniques (GraphRAG, AgenticRAG, Hybrid Retrieval, Contextual Processing).
+ * 
+ * Key Features:
+ * - Technique-specific query execution
+ * - Performance monitoring and metrics
+ * - Error handling and retry logic
+ * - Result normalization and formatting
+ * 
+ * @author RAG Showcase Team
+ * @since 1.0.0
+ * @see {@link RagShowcasePRD.md} Section 3.1 for architecture details
+ */
+```
+
+## **Testing Documentation**
+
+### **Test Documentation Standards:**
+```typescript
+/**
+ * @describe RAGQueryService
+ * 
+ * Tests for the core RAG query execution service, covering all supported techniques
+ * and error scenarios as specified in RagShowcasePRD.md Section 3.1.
+ */
+describe('RAGQueryService', () => {
+  /**
+   * @test Should execute GraphRAG queries successfully
+   * 
+   * Validates GraphRAG technique execution as specified in PRD Section 3.1.2.
+   * Tests knowledge graph construction and traversal functionality.
+   */
+  it('should execute GraphRAG queries successfully', async () => {
+    // Test implementation with clear comments explaining PRD compliance
+  });
+});
+```
+
+## **Performance Documentation**
+
+### **Performance Requirements:**
+- **Document performance targets** from PRD (≤20s end-to-end, ≤60s first-time user)
+- **Include performance notes** in complex algorithms
+- **Document optimization techniques** used
+- **Explain trade-offs** between performance and functionality
+
+```typescript
+/**
+ * Executes RAG query with performance monitoring.
+ * 
+ * Performance Requirements (PRD Section 3.3):
+ * - ≤20s end-to-end query execution
+ * - ≤60s for first-time user to complete comparison
+ * 
+ * @param config - Query configuration
+ * @returns Promise with performance metrics included
+ */
+export async function executeRAGQueryWithMetrics(config: QueryConfig): Promise<RAGResultWithMetrics> {
+  const startTime = performance.now();
+  
+  try {
+    // Implementation with performance monitoring
+    const results = await executeRAGQuery(config);
+    
+    const executionTime = performance.now() - startTime;
+    
+    // Log performance metrics for PRD compliance validation
+    console.log(`Query executed in ${executionTime}ms (PRD limit: 20000ms)`);
+    
+    return { results, metrics: { executionTime } };
+  } catch (error) {
+    // Error handling with performance context
+  }
+}
+```
+
+## **Anti-Patterns to Avoid**
+
+### **❌ DON'T:**
+- Create new modules without checking existing code
+- Write complex code without documentation
+- Implement features without PRD reference
+- Duplicate functionality that exists elsewhere
+- Write code without performance considerations
+
+### **✅ DO:**
+- Search and reuse existing code patterns
+- Document all public APIs and complex logic
+- Reference PRD sections in implementation
+- Extend existing utilities when possible
+- Consider performance implications of all code
+
+---
+
+**Remember:** Minimal code with strong documentation is more maintainable than complex code with no documentation. Always prefer refactoring existing code over creating new modules.

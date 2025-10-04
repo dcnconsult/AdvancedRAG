@@ -1,0 +1,393 @@
+---
+description: Guidelines for reusing existing code and refactoring before creating new modules
+globs: src/**/*.{ts,tsx,js,jsx}, tests/**/*.{ts,tsx,js,jsx}
+alwaysApply: true
+---
+
+# Existing Code Reuse & Refactoring Guidelines
+
+## **Reuse-First Development Philosophy**
+
+### **Core Principles:**
+- **Always search existing codebase** before creating new functionality
+- **Prefer refactoring existing code** over creating new modules when refactor limits allow
+- **Extend existing utilities** rather than duplicating functionality
+- **Leverage existing patterns** and conventions throughout the codebase
+- **Maintain consistency** by reusing established code patterns
+
+## **Code Discovery Process**
+
+### **Before Creating New Code:**
+1. **Search for existing similar functionality**
+2. **Evaluate refactoring opportunities** in existing modules
+3. **Check if existing utilities** can be extended
+4. **Look for existing patterns** that can be adapted
+5. **Consider composition** over new implementations
+
+### **Search Strategies:**
+```bash
+# Search for existing functions with similar functionality
+grep -r "execute.*query" src/
+grep -r "format.*metadata" src/
+grep -r "validate.*config" src/
+
+# Search for existing hooks with similar patterns
+grep -r "use.*Query" src/hooks/
+grep -r "use.*State" src/hooks/
+
+# Search for existing components with similar UI patterns
+grep -r "Result.*Display" src/components/
+grep -r "Config.*Screen" src/components/
+```
+
+## **Refactoring Guidelines**
+
+### **When to Refactor vs. Create New:**
+
+#### **✅ Refactor Existing Code When:**
+- Existing function can be made more generic
+- Similar functionality exists but needs parameterization
+- Code can be extracted into reusable utilities
+- Existing patterns can be extended for new use cases
+- Performance improvements can be made to existing code
+
+#### **❌ Create New Code Only When:**
+- No similar functionality exists in codebase
+- Refactoring would break existing functionality
+- New requirements are fundamentally different
+- Existing code is tightly coupled and cannot be safely refactored
+
+### **Refactoring Patterns:**
+
+#### **1. Parameterization Pattern:**
+```typescript
+// ✅ DO: Refactor existing function to be more generic
+// Before:
+export const formatGraphRAGMetadata = (metadata: GraphRAGMetadata) => {
+  return {
+    traversals: metadata.graph_traversals,
+    entities: metadata.entities_found
+  };
+};
+
+// After: Refactor to handle multiple techniques
+export const formatRAGMetadata = (metadata: RAGMetadata, technique: RAGTechnique) => {
+  switch (technique) {
+    case 'GraphRAG':
+      return formatGraphRAGMetadata(metadata as GraphRAGMetadata);
+    case 'AgenticRAG':
+      return formatAgenticRAGMetadata(metadata as AgenticRAGMetadata);
+    default:
+      return formatGenericMetadata(metadata);
+  }
+};
+```
+
+#### **2. Extraction Pattern:**
+```typescript
+// ✅ DO: Extract common logic into reusable utility
+// Before: Duplicated error handling in multiple functions
+export const executeGraphRAGQuery = async (config: QueryConfig) => {
+  try {
+    // GraphRAG specific logic
+  } catch (error) {
+    // Duplicated error handling
+    console.error('GraphRAG query failed:', error);
+    throw new RAGQueryError(`GraphRAG query failed: ${error.message}`);
+  }
+};
+
+// After: Extract common error handling
+const handleRAGQueryError = (error: Error, technique: RAGTechnique): never => {
+  console.error(`${technique} query failed:`, error);
+  throw new RAGQueryError(`${technique} query failed: ${error.message}`);
+};
+
+export const executeGraphRAGQuery = async (config: QueryConfig) => {
+  try {
+    // GraphRAG specific logic
+  } catch (error) {
+    handleRAGQueryError(error, 'GraphRAG');
+  }
+};
+```
+
+#### **3. Composition Pattern:**
+```typescript
+// ✅ DO: Compose existing utilities rather than creating new ones
+// Before: New function for combined functionality
+export const executeAndFormatRAGQuery = async (config: QueryConfig) => {
+  const results = await executeRAGQuery(config);
+  return formatRAGResults(results);
+};
+
+// After: Compose existing functions
+export const executeAndFormatRAGQuery = async (config: QueryConfig) => {
+  const results = await executeRAGQuery(config);
+  return formatRAGResults(results);
+};
+
+// Or even better, use existing hook pattern:
+export const useRAGQuery = (config: QueryConfig) => {
+  const [results, setResults] = useState<RAGResult[]>([]);
+  const [formattedResults, setFormattedResults] = useState<FormattedResult[]>([]);
+  
+  const executeQuery = useCallback(async () => {
+    const rawResults = await executeRAGQuery(config);
+    setResults(rawResults);
+    setFormattedResults(formatRAGResults(rawResults));
+  }, [config]);
+  
+  return { results, formattedResults, executeQuery };
+};
+```
+
+## **Hook Reuse Patterns**
+
+### **Extending Existing Hooks:**
+```typescript
+// ✅ DO: Extend existing hook with new functionality
+// Existing hook:
+export const useAuth = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  // ... existing implementation
+};
+
+// New hook extending existing functionality:
+export const useAuthWithSession = () => {
+  const { user, loading, login, logout } = useAuth();
+  const [session, setSession] = useState<RAGSession | null>(null);
+  
+  const saveSession = useCallback(async (sessionData: RAGSession) => {
+    if (!user) throw new Error('User must be authenticated');
+    await ragService.saveSession({ ...sessionData, user_id: user.id });
+    setSession(sessionData);
+  }, [user]);
+  
+  return { 
+    ...useAuth(), 
+    session, 
+    saveSession,
+    // Additional session-specific functionality
+  };
+};
+```
+
+### **Composing Multiple Hooks:**
+```typescript
+// ✅ DO: Compose multiple existing hooks
+export const useRAGQueryWithAuth = (config: QueryConfig) => {
+  const { user, loading: authLoading } = useAuth();
+  const { results, loading: queryLoading, executeQuery } = useRAGQuery(config);
+  const { saveSession } = useAuthWithSession();
+  
+  const executeAndSave = useCallback(async () => {
+    if (!user) throw new Error('User must be authenticated');
+    
+    const queryResults = await executeQuery();
+    
+    // Save session using existing functionality
+    await saveSession({
+      domain_id: config.domain_id,
+      query_text: config.query_text,
+      results: queryResults,
+      created_at: new Date().toISOString()
+    });
+    
+    return queryResults;
+  }, [user, executeQuery, saveSession, config]);
+  
+  return {
+    results,
+    loading: authLoading || queryLoading,
+    executeAndSave,
+    user
+  };
+};
+```
+
+## **Component Reuse Patterns**
+
+### **Extending Existing Components:**
+```typescript
+// ✅ DO: Extend existing component with new props
+// Existing component:
+interface QueryConfigProps {
+  onQuerySubmit: (config: QueryConfig) => void;
+  loading: boolean;
+}
+
+export const QueryConfigScreen: React.FC<QueryConfigProps> = ({ onQuerySubmit, loading }) => {
+  // ... existing implementation
+};
+
+// Extended component with additional functionality:
+interface ExtendedQueryConfigProps extends QueryConfigProps {
+  showAdvancedOptions?: boolean;
+  onSessionSave?: (session: RAGSession) => void;
+  defaultTechniques?: RAGTechnique[];
+}
+
+export const ExtendedQueryConfigScreen: React.FC<ExtendedQueryConfigProps> = ({
+  showAdvancedOptions = false,
+  onSessionSave,
+  defaultTechniques = ['GraphRAG'],
+  ...baseProps
+}) => {
+  return (
+    <QueryConfigScreen {...baseProps}>
+      {showAdvancedOptions && (
+        <AdvancedOptionsSection 
+          onSessionSave={onSessionSave}
+          defaultTechniques={defaultTechniques}
+        />
+      )}
+    </QueryConfigScreen>
+  );
+};
+```
+
+### **Composing Existing Components:**
+```typescript
+// ✅ DO: Compose existing components rather than creating new ones
+export const RAGComparisonScreen: React.FC<{ results: RAGResult[] }> = ({ results }) => {
+  return (
+    <View style={styles.container}>
+      <ResultsHeader results={results} />
+      <ResultsComparison results={results} />
+      <SourceChunksDisplay results={results} />
+      <MetadataVisualization results={results} />
+    </View>
+  );
+};
+```
+
+## **Service Layer Reuse**
+
+### **Extending Existing Services:**
+```typescript
+// ✅ DO: Extend existing service with new methods
+export class RAGService {
+  // ... existing methods
+  
+  /**
+   * Execute query with session management using existing functionality
+   */
+  async executeQueryWithSession(config: QueryConfig, userId: string): Promise<RAGResult[]> {
+    const results = await this.executeQuery(config);
+    
+    // Use existing session management functionality
+    await this.saveSession({
+      user_id: userId,
+      domain_id: config.domain_id,
+      query_text: config.query_text,
+      results,
+      created_at: new Date().toISOString()
+    });
+    
+    return results;
+  }
+}
+```
+
+### **Service Composition:**
+```typescript
+// ✅ DO: Compose services using existing functionality
+export class RAGComparisonService {
+  constructor(
+    private ragService: RAGService,
+    private sessionService: SessionService,
+    private analyticsService: AnalyticsService
+  ) {}
+  
+  async executeComparison(config: QueryConfig): Promise<ComparisonResult> {
+    // Use existing RAG service functionality
+    const results = await this.ragService.executeQuery(config);
+    
+    // Use existing session service functionality
+    const session = await this.sessionService.createSession(config, results);
+    
+    // Use existing analytics service functionality
+    await this.analyticsService.trackComparison(session.id, results);
+    
+    return { results, session };
+  }
+}
+```
+
+## **Type Reuse Patterns**
+
+### **Extending Existing Types:**
+```typescript
+// ✅ DO: Extend existing types rather than creating new ones
+// Existing type:
+interface QueryConfig {
+  domain_id: number;
+  query_text: string;
+  techniques: RAGTechnique[];
+}
+
+// Extended type for new functionality:
+interface ExtendedQueryConfig extends QueryConfig {
+  advanced_options?: {
+    timeout?: number;
+    max_results?: number;
+    include_metadata?: boolean;
+  };
+  session_options?: {
+    auto_save?: boolean;
+    session_name?: string;
+  };
+}
+```
+
+### **Type Composition:**
+```typescript
+// ✅ DO: Compose types using existing definitions
+type RAGComparisonConfig = QueryConfig & {
+  comparison_mode: 'side-by-side' | 'tabs' | 'accordion';
+  display_options: {
+    show_metadata: boolean;
+    show_sources: boolean;
+    highlight_differences: boolean;
+  };
+};
+```
+
+## **Refactoring Safety Guidelines**
+
+### **Safe Refactoring Practices:**
+1. **Maintain backward compatibility** when possible
+2. **Add new functionality** without breaking existing code
+3. **Use feature flags** for gradual rollouts
+4. **Write tests** before refactoring critical code
+5. **Document breaking changes** clearly
+
+### **Refactoring Checklist:**
+- [ ] Existing functionality remains unchanged
+- [ ] New functionality is properly tested
+- [ ] Documentation is updated
+- [ ] Performance is maintained or improved
+- [ ] PRD compliance is preserved
+- [ ] Task Master workflow is not disrupted
+
+## **Anti-Patterns to Avoid**
+
+### **❌ DON'T:**
+- Create new modules without searching existing code
+- Duplicate functionality that exists elsewhere
+- Break existing functionality during refactoring
+- Create overly complex abstractions
+- Ignore existing patterns and conventions
+
+### **✅ DO:**
+- Search and reuse existing code patterns
+- Refactor existing code to be more generic
+- Extend existing utilities with new functionality
+- Maintain consistency with existing codebase
+- Document refactoring decisions and rationale
+
+---
+
+**Remember:** The best code is often the code you don't have to write. Always prefer reusing and refactoring existing code over creating new implementations.

@@ -1,0 +1,176 @@
+<context>
+# Overview  
+The RAG Technique Showcase is a web-first (React/Next.js) application that enables AI/ML practitioners to directly compare high-impact Retrieval-Augmented Generation (RAG) techniques on the same query and domain. It surfaces evidence (source chunks) and technique-specific metadata (e.g., graph traversals, re-ranking scores, agent steps) so users can assess faithfulness, grounding, cost/performance, and production suitability.
+
+Why web-first: qualitative comparisons benefit from widescreens for side-by-side evidence and metadata. Mobile screens limit multi-panel layouts. The app optimizes for desktop (≥1024px) with a responsive fallback (tabs/accordion) on smaller viewports.
+
+# Core Features  
+1) Technique Comparison (MVP: 5 techniques)
+- What: Execute and display results from multiple RAG techniques for the same query and domain.
+- Why: See qualitatively different behaviors side-by-side to choose production-ready approaches.
+- How: Call Supabase Edge Functions that implement pipelines; normalize outputs to a shared contract: { technique_name, response_text, source_chunks[], metadata }.
+
+2) Evidence & Metadata
+- What: Show retrieved source chunks (title, snippet, score/id/link) and technique-specific metadata.
+- Why: Improve explainability and trust; verify grounding and reduce hallucinations.
+- How: Render source list and a metadata panel/timeline (agent steps, graph path, scoring, latency, token usage, cost).
+
+3) Session Saving & History
+- What: Save full comparison sessions (domain, techniques, query, all results) tied to authenticated users.
+- Why: Enables later review, cohort analysis, and retention metrics.
+- How: Supabase Auth + RLS; `rag_sessions` and `rag_results` tables store session contents.
+
+4) Domain Selection & Uploads
+- What: Use preloaded datasets or upload PDFs to create a relevant domain.
+- Why: Evaluate techniques on domain-relevant content; support enterprise-like scenarios.
+- How: Supabase Storage for PDFs; background ingestion to `documents`/`document_chunks` with embeddings (pgvector), BM25 indexes; processing status optional via `jobs_ingest`.
+
+5) Web-First Comparison UX
+- What: Side-by-side grid on desktop (≥1024px), tabs/accordion fallback on smaller screens.
+- Why: Optimized visibility of multiple techniques and their metadata simultaneously.
+- How: Responsive layout; progressive disclosure of heavy metadata; WCAG 2.1 AA for core flows.
+
+6) Analytics (KPIs)
+- What: Track `session_created`, `query_submitted`, `results_rendered`, `session_saved`, `session_opened`, `technique_tab_viewed`.
+- Why: Validate demand and measure engagement, performance, and retention.
+- How: Client events sent to analytics service and/or stored in metadata.
+
+# User Experience  
+Personas
+- Alex (AI/ML Researcher): needs accuracy, explainability, evidence visibility, and export-friendly traces.
+- Priya (Application Developer): needs ease of implementation, latency/cost insight, robust outputs for production.
+
+Key Flows
+1. Launch: Minimal home with Start New Comparison and optional Login.
+2. Configure: Select domain (preloaded or upload PDF), choose techniques (2–3 recommended), enter query.
+3. Execute: Submit → loading → results view.
+4. Compare: Side-by-side grid on desktop; per-technique tabs/accordion on small screens: Answer, Sources, Metadata.
+5. Save: Save Session (requires login); browse Saved Sessions list.
+
+UI/UX Considerations
+- Web-first & comparison-first; responsive fallback for small screens.
+- Progressive disclosure; keep layouts readable; consistent design system.
+- Accessibility: meet WCAG 2.1 AA for core flows.
+- Reference examples in project root `ui/*` folders are for styling/layout patterns and should follow the code/data contracts (example-driven from code), not dictate them.
+</context>
+
+<PRD>
+# Technical Architecture  
+System Components
+- Client: React/Next.js (TypeScript), state with TanStack Query/Zustand; analytics for KPIs.
+- Backend: Hosted Supabase (Postgres with pgvector, Auth, Storage), Edge Functions (TypeScript/Node) exposing pipelines via RPC/REST.
+- Pipelines (pluggable):
+  - Hybrid Search (Dense + Sparse)
+  - Re-ranking
+  - Contextual Retrieval
+  - Agentic RAG / Query Routing
+  - Advanced Chunking Strategies
+
+Data Contract (Response per technique)
+{
+  "technique_name": "...",
+  "response_text": "...",
+  "source_chunks": [{"id":"doc:42#p3","title":"...","snippet":"...","score":0.78}],
+  "metadata": {
+    "reasoning_path": [{"step":"..."}],
+    "latency_ms": 0,
+    "token_usage": {"prompt": 0, "completion": 0},
+    "cost_estimate": 0
+  }
+}
+
+Database Schema (MVP)
+- users(id UUID PK → auth.users, email TEXT)
+- domains(id SERIAL PK, name TEXT, source_type TEXT['preloaded'|'user_upload'], storage_path TEXT)
+- rag_sessions(id SERIAL PK, user_id UUID FK→users.id, domain_id INT FK→domains.id, query_text TEXT, created_at TIMESTAMP default now())
+- rag_results(id SERIAL PK, session_id INT FK→rag_sessions.id, technique_name TEXT, response_text TEXT, source_chunks_json JSONB, metadata_json JSONB)
+- documents(id SERIAL PK, domain_id INT FK, title TEXT, source_uri TEXT, storage_path TEXT, hash TEXT, created_at TIMESTAMP)
+- document_chunks(id SERIAL PK, document_id INT FK, chunk_index INT, text TEXT, embedding VECTOR(1536))
+- indexes: GIN on metadata_json; ivfflat on embedding (cosine)
+- optional: jobs_ingest(id SERIAL PK, status TEXT, error TEXT, created_at TIMESTAMP)
+
+Security (RLS)
+- Enable RLS on `rag_sessions`, `rag_results`, and user-owned content.
+- Policies: owner can read/write; public read for preloaded domain chunks if needed.
+
+Hosting & Configuration
+- Supabase hosted project. Connection keys in `.env`: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+- Migrations/seed in `db/` (e.g., `Migration001.sql`, `Migration002.sql`, `Seed001.sql`). Apply via Supabase Dashboard SQL editor or CLI; keep hosted and any local dev in sync.
+- Edge Functions deployment via `supabase functions deploy` against the hosted project.
+
+Non-Functional Requirements (MVP)
+- Performance: ≤20s end-to-end for up to 100 documents in a preloaded domain.
+- Usability: first-time user completes a comparison in ≤60s without external docs.
+- Comparison Surface: side-by-side layout on ≥1024px; tabs/accordion below 768px.
+- Accessibility & Cross-Browser: WCAG 2.1 AA for core flows; latest Chrome/Edge/Safari/Firefox.
+
+# Development Roadmap  
+MVP Requirements
+- Comparison of 5 techniques: Hybrid Search, Re-ranking, Contextual Retrieval, Agentic RAG/Query Routing, Advanced Chunking Strategies.
+- User accounts and session saving (Supabase Auth + RLS).
+- Preloaded datasets support; PDF upload & ingestion.
+- Web-based desktop interface (responsive fallback).
+- Qualitative evidence and metadata visualization; analytics events.
+
+Future Enhancements / Roadmap
+- Expanded technique library; configurable parameters (chunking, embed models, re-rankers).
+- Quantitative evaluation (RAGAs/DeepEval) for faithfulness/relevance/grounding.
+- BYOK for cost control and model experimentation.
+- Collaboration: shareable links, public galleries.
+- Platform expansion: native mobile app; advanced graph visualizations; dataset management UI.
+- Cost & latency insights; per-technique dashboards; budget caps.
+- Advanced security (MFA, org workspaces, audit logs, SSO).
+
+# Logical Dependency Chain  
+Foundation
+1. Repository, environment, `.env` with Supabase keys; CI setup.
+2. Supabase hosted schema: apply `db/` migrations/seed; enable pgvector; create indexes; add RLS policies.
+3. Supabase Auth integration; session management in client.
+4. Storage bucket and ingestion workflow; PDF upload path and status indicators.
+
+Core Functionality
+5. Implement normalized API contract and client types.
+6. Build Edge Functions per technique (Hybrid, Re-ranking, Contextual, Agentic, Chunking).
+7. Domain selector (preloaded/upload) and technique selector (limit to 2–3 for performance during MVP).
+8. Execute comparison; collect results and metadata.
+
+UX & Persistence
+9. Results screen: desktop side-by-side; tabs/accordion fallback; sources & metadata panels.
+10. Save Session (Auth required); list Saved Sessions with filtering.
+11. Analytics events for KPIs.
+
+Quality & Release
+12. Performance validation (≤20s end-to-end) on representative preload.
+13. Error boundaries and user-friendly failures; retries where appropriate.
+14. Testing: unit (services/utils), component, integration (workflow), and basic E2E.
+15. Documentation updates; deploy Edge Functions; release.
+
+# Risks and Mitigations  
+1) LLM instability/cost spikes
+- Mitigation: retries, rate limits, daily budget caps, provider fallbacks.
+
+2) Inconsistent metadata across techniques
+- Mitigation: normalize to common keys (`reasoning_path`, `latency_ms`, `token_usage`, `cost_estimate`).
+
+3) Slow PDF ingestion or large content variance
+- Mitigation: server-side chunking; show progress; semantic/hierarchical chunking; cache intermediate artifacts post-MVP.
+
+# Appendix  
+Data Contracts
+- Request: `{ domain_id, techniques[], query_text }`
+- Response: array of technique result objects (see contract above).
+
+Event Tracking (KPIs)
+- `session_created`, `query_submitted`, `results_rendered`, `session_saved`, `session_opened`, `technique_tab_viewed`.
+
+Supabase Hosting Checklist (Snippet)
+- Link to hosted: `supabase link --project-ref <project-ref>`
+- Types from hosted: `supabase gen types typescript --project-id <project-ref> > src/types/supabase.ts`
+- Apply SQL in `db/` via Dashboard or secure CLI; keep schemas in sync.
+- Deploy Edge Functions: `supabase functions deploy`
+
+UI References
+- See `ui/Welcome/`, `ui/Authentication/`, `ui/Query Builder/`, `ui/Results Comparison/`, `ui/Domain Management/`, `ui/Saved Sessions/`. Use for styling/layout patterns; examples follow code/data contracts.
+</PRD>
+
+

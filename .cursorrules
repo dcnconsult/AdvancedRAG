@@ -1,0 +1,317 @@
+# Cursor Rules for RAG Technique Showcase
+
+## Project Context
+This is a web-first (React/Next.js) application for comparing different RAG (Retrieval-Augmented Generation) techniques. The project uses Task Master AI for structured development and follows the PRD as the single source of truth.
+
+## Master Source of Truth
+- **PRD Document**: `RagShowcasePRD.md` is the authoritative specification
+- **Task Management**: `tasks/tasks.json` contains the structured development plan
+- **Development Methodology**: Task Master AI workflow for organized, dependency-aware development
+
+## Core Technologies
+- **Frontend**: Web (React/Next.js) with TypeScript
+- **Backend**: Supabase (PostgreSQL, Auth, Storage, pgvector)
+- **AI Integration**: Multiple RAG techniques (GraphRAG, Agentic RAG, Hybrid Retrieval, Contextual Processing)
+- **Development Environment**: Windows with Cursor AI
+- **Task Management**: Task Master AI
+
+## Development Workflow
+
+### Task Master Integration
+Always reference and update tasks when making changes:
+
+1. **Before starting work**: Check current task status with `task-master list` or `task-master next`
+2. **During development**: Update task progress and log implementation details
+3. **After completion**: Mark tasks as done and update dependent tasks if needed
+
+### Task Management Commands
+```bash
+# Check available tasks
+task-master list
+
+# Get next task to work on
+task-master next
+
+# View specific task details
+task-master show <id>
+
+# Update task status
+task-master set-status --id=<id> --status=done
+
+# Update tasks based on implementation changes
+task-master update --from=<id> --prompt="<explanation>"
+```
+
+## Code Standards
+
+### File Structure
+```
+src/
+├── components/          # Reusable UI components
+├── screens/            # Screen components
+├── services/          # API and business logic
+├── hooks/             # Custom React hooks
+├── utils/             # Utility functions
+├── types/             # TypeScript type definitions
+└── constants/         # Application constants
+```
+
+### TypeScript Requirements
+- Use strict TypeScript with proper interfaces
+- Define types for all RAG responses and Supabase data
+- Use proper error handling with custom error classes
+- Implement proper loading and error states
+
+### Component Patterns
+- Use functional components with TypeScript interfaces
+- Implement proper error boundaries for RAG operations
+- Use loading states for all async operations
+- Implement progressive disclosure for complex metadata
+
+### Supabase Integration
+- Always use environment variables for configuration
+- Implement Row-Level Security (RLS) policies
+- Use TypeScript types generated from Supabase schema
+- Handle authentication and session management properly
+
+## RAG-Specific Patterns
+
+### Query Execution
+```typescript
+interface RAGResult {
+  technique_name: string;
+  response_text: string;
+  source_chunks: SourceChunk[];
+  metadata: RAGMetadata;
+}
+```
+
+### Error Handling
+```typescript
+export class RAGQueryError extends Error {
+  constructor(message: string, public code?: string) {
+    super(message);
+    this.name = 'RAGQueryError';
+  }
+}
+```
+
+### Performance Requirements
+- ≤ 20s end-to-end query execution
+- ≤ 60s for first-time user to complete comparison
+- Web-first comparison UX with responsive fallback
+- Proper caching and optimization
+
+## Windows Development Environment
+
+### Path Handling
+- Use `path.join()` for cross-platform compatibility
+- Handle Windows-specific path separators
+- Use proper environment variable configuration
+
+### PowerShell Integration
+- Use PowerShell scripts for development tasks
+- Configure Windows Terminal for optimal development
+- Handle long path support on Windows
+
+### Supabase Hosted Environment
+```bash
+# Environment variables in .env (example)
+# SUPABASE_URL=...
+# SUPABASE_ANON_KEY=...
+# SUPABASE_SERVICE_ROLE_KEY=...
+
+# Generate TypeScript types from hosted project (example)
+supabase gen types typescript --project-id <project-ref> > src/types/supabase.ts
+
+# Apply migrations and seed
+# Use the Supabase Dashboard SQL editor or CLI with a secure DB URL to apply files in db/ (Migration*.sql, Seed*.sql)
+```
+
+## Testing Requirements
+
+### Test Coverage
+- Unit tests for all services and utilities
+- Component tests for UI components
+- Integration tests for RAG workflows
+- End-to-end tests for user journeys
+
+### Test Structure
+```
+__tests__/
+├── components/        # Component tests
+├── services/         # Service tests
+├── integration/      # Integration tests
+└── utils/           # Utility tests
+```
+
+## Error Handling Standards
+
+### Service Layer
+- Implement proper error handling with custom error classes
+- Log errors appropriately
+- Provide meaningful error messages
+- Implement retry logic for failed operations
+
+### Component Layer
+- Use error boundaries for RAG operations
+- Display user-friendly error messages
+- Implement proper loading states
+- Handle network failures gracefully
+
+## Performance Optimization
+
+### Web (React/Next.js)
+- Use React.memo for expensive components
+- Implement virtual scrolling for large lists
+- Use proper cleanup in useEffect hooks
+- Optimize re-renders with useCallback and useMemo
+
+### RAG Operations
+- Implement caching for repeated queries
+- Use optimistic updates for better UX
+- Implement proper loading indicators
+- Optimize vector operations with proper indexing
+
+## Security Requirements
+
+### Authentication
+- Use Supabase Auth for user authentication
+- Implement proper session management
+- Use RLS policies for data access control
+- Handle token refresh properly
+
+### Data Protection
+- Validate all inputs before processing
+- Use signed URLs for file access
+- Implement proper CORS policies
+- Secure API endpoints
+
+## Analytics and Monitoring
+
+### KPI Tracking
+- Track session creation and retention
+- Monitor query execution performance
+- Track user engagement metrics
+- Monitor error rates and performance
+
+### Event Tracking
+```typescript
+// Required analytics events
+- session_created
+- query_submitted
+- results_rendered
+- session_saved
+- session_opened
+- technique_tab_viewed
+```
+
+## Deployment Requirements
+
+### Environment Configuration
+- Use environment variables for all configuration
+- Separate development and production configs
+- Implement proper secret management
+- Use proper build configurations
+
+### CI/CD Pipeline
+- Run tests on Windows environment
+- Deploy to Supabase
+- Deploy Edge Functions
+- Monitor deployment health
+
+## Code Quality
+
+### Linting and Formatting
+- Use ESLint for code quality
+- Use Prettier for code formatting
+- Enforce TypeScript strict mode
+- Use proper import organization
+
+### Documentation
+- Document all public APIs
+- Use JSDoc for complex functions
+- Maintain up-to-date README
+- Document deployment procedures
+
+## AI Integration Guidelines
+
+### Cursor AI Usage
+- Use Cursor AI for code generation and assistance
+- Reference task context when asking for help
+- Follow established patterns and conventions
+- Update tasks after significant changes
+
+### Task Master AI
+- Use Task Master for structured development
+- Reference PRD when generating tasks
+- Update tasks based on implementation changes
+- Use complexity analysis for task breakdown
+
+## Common Commands
+
+### Development
+```bash
+# Start development server
+npm run dev
+
+# Run tests
+npm test
+
+# Lint code
+npm run lint
+
+# Format code
+npm run format
+```
+
+### Task Management
+```bash
+# List tasks
+task-master list
+
+# Get next task
+task-master next
+
+# Update task status
+task-master set-status --id=<id> --status=done
+
+# Generate task files
+task-master generate
+```
+
+### Supabase
+```bash
+# Link to hosted project (once per machine)
+supabase link --project-ref <project-ref>
+
+# Generate types from hosted
+supabase gen types typescript --project-id <project-ref> > src/types/supabase.ts
+
+# Deploy Edge Functions to hosted
+supabase functions deploy
+
+# Apply db/*.sql via Dashboard SQL editor (recommended) or securely via CLI
+```
+
+## Best Practices
+
+1. **Always reference the PRD** when making architectural decisions
+2. **Update tasks** when implementation differs from plan
+3. **Use TypeScript** for all code with proper interfaces
+4. **Implement proper error handling** at all layers
+5. **Follow mobile-first design** principles
+6. **Optimize for performance** with proper caching and loading states
+7. **Test thoroughly** with comprehensive test coverage
+8. **Document changes** and update tasks accordingly
+9. **Use Task Master workflow** for organized development
+10. **Maintain security** with proper authentication and RLS policies
+
+## Windows-Specific Considerations
+
+- Use PowerShell for development scripts
+- Configure Windows Terminal for optimal experience
+- Handle long path support
+- Use proper environment variable configuration
+- Configure Docker for Supabase local development
+- Use proper file path handling for cross-platform compatibility
