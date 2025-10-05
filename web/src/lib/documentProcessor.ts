@@ -10,6 +10,22 @@ export interface DocumentMetadata {
   subject?: string;
   created?: Date;
   modified?: Date;
+  // Context extraction fields
+  documentType?: 'pdf' | 'text' | 'markdown' | 'html' | 'unknown';
+  summary?: string;
+  keyTopics?: string[];
+  sectionStructure?: DocumentSection[];
+  contextTemplate?: string;
+  extractedContext?: string;
+}
+
+export interface DocumentSection {
+  title: string;
+  level: number;
+  startPosition: number;
+  endPosition: number;
+  content?: string;
+  subsections?: DocumentSection[];
 }
 
 export interface DocumentChunk {
@@ -210,6 +226,11 @@ export class SemanticChunker {
         startPosition: chunk.boundaries.start,
         endPosition: chunk.boundaries.end,
         overlapWithPrevious: index > 0,
+        // Include document context
+        documentContext: metadata.extractedContext,
+        documentType: metadata.documentType,
+        keyTopics: metadata.keyTopics,
+        sectionStructure: metadata.sectionStructure,
         ...metadata
       }
     }));
@@ -375,6 +396,11 @@ export class HierarchicalChunker {
         startPosition: 0,
         endPosition: text.length,
         overlapWithPrevious: false,
+        // Include document context
+        documentContext: metadata.extractedContext,
+        documentType: metadata.documentType,
+        keyTopics: metadata.keyTopics,
+        sectionStructure: metadata.sectionStructure,
         ...metadata
       }
     });
@@ -398,6 +424,11 @@ export class HierarchicalChunker {
           overlapWithPrevious: false,
           sectionTitle: section.title,
           sectionIndex: i,
+          // Include document context
+          documentContext: metadata.extractedContext,
+          documentType: metadata.documentType,
+          keyTopics: metadata.keyTopics,
+          sectionStructure: metadata.sectionStructure,
           ...metadata
         }
       });
@@ -420,6 +451,11 @@ export class HierarchicalChunker {
             overlapWithPrevious: false,
             sectionTitle: section.title,
             paragraphIndex: j,
+            // Include document context
+            documentContext: metadata.extractedContext,
+            documentType: metadata.documentType,
+            keyTopics: metadata.keyTopics,
+            sectionStructure: metadata.sectionStructure,
             ...metadata
           }
         });
@@ -491,16 +527,362 @@ export class HierarchicalChunker {
   }
 }
 
+// Document Context Extractor Class
+export class DocumentContextExtractor {
+  private openai: OpenAI;
+
+  constructor(apiKey: string) {
+    this.openai = new OpenAI({ apiKey });
+  }
+
+  /**
+   * Extract comprehensive document context and metadata
+   */
+  async extractDocumentContext(
+    text: string, 
+    filename: string, 
+    basicMetadata: Partial<DocumentMetadata>
+  ): Promise<DocumentMetadata> {
+    const documentType = this.detectDocumentType(text, filename);
+    const sectionStructure = this.extractSectionStructure(text);
+    const keyTopics = await this.extractKeyTopics(text);
+    const summary = await this.generateDocumentSummary(text);
+    const contextTemplate = this.selectContextTemplate(documentType, sectionStructure);
+    const extractedContext = this.buildDocumentContext({
+      title: basicMetadata.title || filename.replace(/\.[^/.]+$/, ""),
+      author: basicMetadata.author,
+      subject: basicMetadata.subject,
+      summary,
+      keyTopics,
+      sectionStructure,
+      documentType
+    }, contextTemplate);
+
+    return {
+      ...basicMetadata,
+      documentType,
+      summary,
+      keyTopics,
+      sectionStructure,
+      contextTemplate,
+      extractedContext
+    };
+  }
+
+  /**
+   * Detect document type based on content and filename
+   */
+  private detectDocumentType(text: string, filename: string): DocumentMetadata['documentType'] {
+    const extension = filename.split('.').pop()?.toLowerCase();
+    
+    // Check for markdown patterns
+    if (text.includes('# ') || text.includes('## ') || text.includes('### ')) {
+      return 'markdown';
+    }
+    
+    // Check for HTML patterns
+    if (text.includes('<html>') || text.includes('<body>') || text.includes('<div>')) {
+      return 'html';
+    }
+    
+    // Check file extension
+    switch (extension) {
+      case 'pdf':
+        return 'pdf';
+      case 'md':
+      case 'markdown':
+        return 'markdown';
+      case 'html':
+      case 'htm':
+        return 'html';
+      case 'txt':
+        return 'text';
+      default:
+        return 'unknown';
+    }
+  }
+
+  /**
+   * Extract document section structure
+   */
+  private extractSectionStructure(text: string): DocumentSection[] {
+    const lines = text.split('\n');
+    const sections: DocumentSection[] = [];
+    let position = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      const linePosition = position;
+      position += line.length + 1; // +1 for newline
+
+      const headerMatch = this.parseHeader(line);
+      if (headerMatch) {
+        sections.push({
+          title: headerMatch.title,
+          level: headerMatch.level,
+          startPosition: linePosition,
+          endPosition: linePosition + line.length,
+          content: line
+        });
+      }
+    }
+
+    // Build hierarchical structure
+    return this.buildHierarchicalStructure(sections);
+  }
+
+  /**
+   * Parse header line to extract title and level
+   */
+  private parseHeader(line: string): { title: string; level: number } | null {
+    // Markdown headers
+    const markdownMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (markdownMatch) {
+      return {
+        title: markdownMatch[2].trim(),
+        level: markdownMatch[1].length
+      };
+    }
+
+    // Numbered sections
+    const numberedMatch = line.match(/^(\d+(?:\.\d+)*)\s+(.+)$/);
+    if (numberedMatch) {
+      const level = numberedMatch[1].split('.').length;
+      return {
+        title: numberedMatch[2].trim(),
+        level
+      };
+    }
+
+    // ALL CAPS titles (short lines)
+    if (/^[A-Z][A-Z\s]+$/.test(line) && line.length < 50) {
+      return {
+        title: line,
+        level: 1
+      };
+    }
+
+    // Bold titles (surrounded by **)
+    const boldMatch = line.match(/^\*\*(.+)\*\*$/);
+    if (boldMatch) {
+      return {
+        title: boldMatch[1].trim(),
+        level: 2
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Build hierarchical section structure
+   */
+  private buildHierarchicalStructure(sections: DocumentSection[]): DocumentSection[] {
+    const result: DocumentSection[] = [];
+    const stack: DocumentSection[] = [];
+
+    for (const section of sections) {
+      // Pop stack until we find the right parent level
+      while (stack.length > 0 && stack[stack.length - 1].level >= section.level) {
+        stack.pop();
+      }
+
+      // Add to parent's subsections or to root
+      if (stack.length > 0) {
+        const parent = stack[stack.length - 1];
+        if (!parent.subsections) {
+          parent.subsections = [];
+        }
+        parent.subsections.push(section);
+      } else {
+        result.push(section);
+      }
+
+      stack.push(section);
+    }
+
+    return result;
+  }
+
+  /**
+   * Extract key topics from document using AI
+   */
+  private async extractKeyTopics(text: string): Promise<string[]> {
+    try {
+      // Limit text length for AI processing
+      const truncatedText = text.slice(0, 4000);
+      
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: "Extract 5-10 key topics from the following document. Return only a JSON array of topic strings."
+          },
+          {
+            role: "user",
+            content: truncatedText
+          }
+        ],
+        max_tokens: 200,
+        temperature: 0.3
+      });
+
+      const topicsText = response.choices[0]?.message?.content || '[]';
+      return JSON.parse(topicsText);
+    } catch (error) {
+      console.error('Error extracting key topics:', error);
+      // Fallback to simple keyword extraction
+      return this.extractKeywordsFallback(text);
+    }
+  }
+
+  /**
+   * Fallback keyword extraction using simple text analysis
+   */
+  private extractKeywordsFallback(text: string): string[] {
+    // Simple keyword extraction based on capitalized words and common terms
+    const words = text.toLowerCase().match(/\b[a-z]{4,}\b/g) || [];
+    const wordCounts = new Map<string, number>();
+    
+    words.forEach(word => {
+      if (!this.isStopWord(word)) {
+        wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+      }
+    });
+
+    return Array.from(wordCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([word]) => word);
+  }
+
+  /**
+   * Check if word is a stop word
+   */
+  private isStopWord(word: string): boolean {
+    const stopWords = new Set([
+      'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use'
+    ]);
+    return stopWords.has(word);
+  }
+
+  /**
+   * Generate document summary using AI
+   */
+  private async generateDocumentSummary(text: string): Promise<string> {
+    try {
+      // Limit text length for AI processing
+      const truncatedText = text.slice(0, 6000);
+      
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: "Generate a concise 2-3 sentence summary of the following document. Focus on the main topic and key points."
+          },
+          {
+            role: "user",
+            content: truncatedText
+          }
+        ],
+        max_tokens: 150,
+        temperature: 0.3
+      });
+
+      return response.choices[0]?.message?.content || '';
+    } catch (error) {
+      console.error('Error generating document summary:', error);
+      // Fallback to first few sentences
+      const sentences = text.split(/[.!?]+/).slice(0, 3);
+      return sentences.join('. ').trim() + '.';
+    }
+  }
+
+  /**
+   * Select appropriate context template based on document type and structure
+   */
+  private selectContextTemplate(
+    documentType: DocumentMetadata['documentType'],
+    sectionStructure: DocumentSection[]
+  ): string {
+    switch (documentType) {
+      case 'markdown':
+        return 'markdown';
+      case 'html':
+        return 'webpage';
+      case 'pdf':
+        return sectionStructure.length > 5 ? 'structured' : 'simple';
+      default:
+        return 'generic';
+    }
+  }
+
+  /**
+   * Build document context string using template
+   */
+  private buildDocumentContext(
+    metadata: {
+      title?: string;
+      author?: string;
+      subject?: string;
+      summary?: string;
+      keyTopics?: string[];
+      sectionStructure?: DocumentSection[];
+      documentType?: string;
+    },
+    template: string
+  ): string {
+    const contextParts: string[] = [];
+
+    // Add title
+    if (metadata.title) {
+      contextParts.push(`Document: ${metadata.title}`);
+    }
+
+    // Add author if available
+    if (metadata.author) {
+      contextParts.push(`Author: ${metadata.author}`);
+    }
+
+    // Add document type
+    if (metadata.documentType && metadata.documentType !== 'unknown') {
+      contextParts.push(`Type: ${metadata.documentType.toUpperCase()}`);
+    }
+
+    // Add summary
+    if (metadata.summary) {
+      contextParts.push(`Summary: ${metadata.summary}`);
+    }
+
+    // Add key topics
+    if (metadata.keyTopics && metadata.keyTopics.length > 0) {
+      contextParts.push(`Key Topics: ${metadata.keyTopics.join(', ')}`);
+    }
+
+    // Add section structure for structured documents
+    if (template === 'structured' && metadata.sectionStructure) {
+      const sections = metadata.sectionStructure.slice(0, 5); // Limit to first 5 sections
+      contextParts.push(`Sections: ${sections.map(s => s.title).join(', ')}`);
+    }
+
+    return contextParts.join('\n');
+  }
+}
+
 // Main Document Processor
 export class DocumentProcessor {
   private pdfProcessor: PDFProcessor;
   private semanticChunker: SemanticChunker;
   private hierarchicalChunker: HierarchicalChunker;
+  private contextExtractor: DocumentContextExtractor;
 
   constructor(apiKey: string) {
     this.pdfProcessor = new PDFProcessor(apiKey);
     this.semanticChunker = new SemanticChunker(apiKey);
     this.hierarchicalChunker = new HierarchicalChunker();
+    this.contextExtractor = new DocumentContextExtractor(apiKey);
   }
 
   async processDocument(
@@ -513,18 +895,25 @@ export class DocumentProcessor {
     // Parse PDF
     const { text, metadata } = await this.pdfProcessor.parsePDF(buffer, filename);
 
+    // Extract comprehensive document context and metadata
+    const enhancedMetadata = await this.contextExtractor.extractDocumentContext(
+      text, 
+      filename, 
+      metadata
+    );
+
     // Create chunks based on strategy
     let chunks: DocumentChunk[] = [];
     
     switch (options.strategy) {
       case 'semantic':
-        chunks = await this.semanticChunker.createSemanticChunks(text, metadata);
+        chunks = await this.semanticChunker.createSemanticChunks(text, enhancedMetadata);
         break;
       case 'hierarchical':
-        chunks = await this.hierarchicalChunker.createHierarchicalChunks(text, metadata);
+        chunks = await this.hierarchicalChunker.createHierarchicalChunks(text, enhancedMetadata);
         break;
       case 'fixed':
-        chunks = this.createFixedChunks(text, metadata, options.maxChunkSize, options.overlapSize);
+        chunks = this.createFixedChunks(text, enhancedMetadata, options.maxChunkSize, options.overlapSize);
         break;
     }
 
@@ -538,7 +927,7 @@ export class DocumentProcessor {
     return {
       text,
       chunks,
-      metadata,
+      metadata: enhancedMetadata,
       processingTime
     };
   }
@@ -568,6 +957,11 @@ export class DocumentProcessor {
           startPosition: start,
           endPosition: end,
           overlapWithPrevious: start > 0,
+          // Include document context
+          documentContext: metadata.extractedContext,
+          documentType: metadata.documentType,
+          keyTopics: metadata.keyTopics,
+          sectionStructure: metadata.sectionStructure,
           ...metadata
         }
       });

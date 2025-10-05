@@ -96,7 +96,12 @@ export function SignupForm() {
     }
   }, [email, password, confirm, signup, router, searchParams]);
 
-  const hasErrors = Object.keys(errors).length > 0;
+  // Compute validation dynamically so the submit button enables as soon as inputs are valid
+  const hasErrors = Boolean(
+    validateEmail(email) ||
+    validatePassword(password) ||
+    validateConfirm(confirm, password)
+  );
   const showEmailError = touched.email && errors.email;
   const showPasswordError = touched.password && errors.password;
   const showConfirmError = touched.confirm && errors.confirm;
@@ -199,7 +204,7 @@ export function SignupForm() {
       <div>
         <button
           type="submit"
-          disabled={submitting || hasErrors}
+          disabled={submitting}
           className="group relative flex w-full justify-center rounded-md border border-transparent bg-green-600 py-2 px-4 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? (

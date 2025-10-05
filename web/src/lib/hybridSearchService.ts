@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
-import { semanticSearch, SemanticSearchResult } from './semanticSearchService';
+import { semanticSearchService, SemanticSearchResult } from './semanticSearchService';
 import { lexicalSearch, LexicalSearchResult, LexicalSearchOptions } from './lexicalSearchService';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -87,12 +87,14 @@ export class HybridSearchService {
     }
 
     // Perform semantic search
-    const semanticResults = await semanticSearch(
+    const semanticResults = await semanticSearchService.search(
       query,
-      documentIds,
-      userId,
-      semanticLimit,
-      semanticThreshold
+      {
+        documentIds,
+        userId,
+        limit: semanticLimit,
+        similarityThreshold
+      }
     );
 
     // Perform lexical search
@@ -155,7 +157,7 @@ export class HybridSearchService {
     semanticResults.forEach((result, index) => {
       resultMap.set(result.id, {
         id: result.id,
-        content: result.content,
+        content: result.chunk_text,
         metadata: result.metadata,
         semantic_score: result.similarity_score,
         lexical_score: 0,
