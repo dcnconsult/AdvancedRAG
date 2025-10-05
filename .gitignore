@@ -24,7 +24,10 @@ node_modules/
 # OS specific
 .DS_Store
 
+archive/
+
 # Task files
 tasks.json
 tasks/ 
-archive/
+reports/
+
