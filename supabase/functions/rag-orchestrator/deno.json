@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.window", "dom"]
+  },
+  "imports": {
+    "cors": "../_shared/cors.ts",
+    "contracts": "../_shared/ragApiContracts.ts",
+    "orchestrator": "../_shared/pipelineOrchestrator.ts",
+    "aggregator": "../_shared/resultAggregator.ts",
+    "monitoring": "../_shared/monitoring.ts"
+  }
+}
+

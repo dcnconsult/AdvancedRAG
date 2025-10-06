@@ -1,0 +1,408 @@
+/**
+ * Results Comparison Layout Styles
+ * 
+ * Responsive grid system with breakpoints:
+ * - Mobile: <768px (Accordion)
+ * - Tablet: 768px-1023px (2-column grid or tabs)
+ * - Desktop: ≥1024px (Multi-column grid)
+ */
+
+/* =============================================================================
+   Container and Layout Modes
+   ============================================================================= */
+
+.comparisonContainer {
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 2rem 0;
+}
+
+.comparisonWrapper {
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* =============================================================================
+   Grid Layout (Desktop & Tablet)
+   ============================================================================= */
+
+.gridLayout {
+  display: grid;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  animation: fadeInUp 0.4s ease-out;
+}
+
+/* Desktop: 3+ columns for multiple techniques */
+@media (min-width: 1024px) {
+  .gridLayout {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    padding: 2rem;
+  }
+
+  .gridLayout[data-technique-count="1"] {
+    grid-template-columns: 1fr;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .gridLayout[data-technique-count="2"] {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .gridLayout[data-technique-count="3"] {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .gridLayout[data-technique-count="4"],
+  .gridLayout[data-technique-count="5"],
+  .gridLayout[data-technique-count="6"] {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Tablet: 2 columns */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .gridLayout {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+    padding: 1.5rem;
+  }
+
+  .gridLayout[data-technique-count="1"] {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile: Single column */
+@media (max-width: 767px) {
+  .gridLayout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1rem;
+  }
+}
+
+/* =============================================================================
+   Tabs Layout (Tablet Alternative)
+   ============================================================================= */
+
+.tabsLayout {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.tabsHeader {
+  display: flex;
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tabButton {
+  flex: 1;
+  min-width: 120px;
+  padding: 1rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: #64748b;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.tabButton:hover {
+  color: #334155;
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.tabButton.active {
+  color: #6366f1;
+  border-bottom-color: #6366f1;
+  background: white;
+}
+
+.tabButton:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.tabsContent {
+  padding: 2rem;
+  min-height: 600px;
+}
+
+.tabPanel {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* =============================================================================
+   Accordion Layout (Mobile)
+   ============================================================================= */
+
+.accordionLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.accordionItem {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.accordionItem:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+
+.accordionHeader {
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: #334155;
+  transition: background 0.2s ease;
+}
+
+.accordionHeader:hover {
+  background: #f1f5f9;
+}
+
+.accordionHeader:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: -2px;
+}
+
+.accordionHeader[aria-expanded="true"] {
+  background: #eef2ff;
+  color: #6366f1;
+  border-bottom: 1px solid #e0e7ff;
+}
+
+.accordionTitle {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.accordionIcon {
+  font-size: 0.875rem;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-block;
+}
+
+.accordionIcon.open {
+  transform: rotate(90deg);
+}
+
+.accordionContent {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.accordionContent.open {
+  max-height: 10000px;
+}
+
+.accordionContentInner {
+  padding: 1.5rem 1.25rem;
+}
+
+/* =============================================================================
+   Animations
+   ============================================================================= */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 1000px;
+    opacity: 1;
+  }
+}
+
+/* =============================================================================
+   Utility Classes
+   ============================================================================= */
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.contentContainer {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  height: 100%;
+}
+
+/* =============================================================================
+   Loading States
+   ============================================================================= */
+
+.loadingGrid {
+  display: grid;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.loadingSkeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+  height: 400px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* =============================================================================
+   Responsive Typography
+   ============================================================================= */
+
+@media (max-width: 767px) {
+  .comparisonWrapper {
+    padding: 0 0.75rem;
+  }
+
+  .contentContainer {
+    padding: 1rem;
+  }
+}
+
+/* =============================================================================
+   Print Styles
+   ============================================================================= */
+
+@media print {
+  .tabsHeader,
+  .accordionHeader,
+  .layout-mode-indicator {
+    display: none;
+  }
+
+  .gridLayout {
+    grid-template-columns: 1fr !important;
+    gap: 2rem;
+  }
+
+  .accordionContent {
+    max-height: none !important;
+  }
+
+  .tabPanel[hidden] {
+    display: block !important;
+    page-break-after: always;
+  }
+}
+
+/* =============================================================================
+   Dark Mode Support
+   ============================================================================= */
+
+@media (prefers-color-scheme: dark) {
+  .comparisonContainer {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  }
+
+  .contentContainer,
+  .accordionItem {
+    background: #1e293b;
+    color: #e2e8f0;
+  }
+
+  .tabsHeader,
+  .accordionHeader {
+    background: #0f172a;
+    border-color: #334155;
+  }
+
+  .tabButton {
+    color: #94a3b8;
+  }
+
+  .tabButton:hover {
+    color: #e2e8f0;
+    background: rgba(99, 102, 241, 0.1);
+  }
+
+  .tabButton.active {
+    color: #818cf8;
+    background: #1e293b;
+  }
+
+  .accordionHeader {
+    color: #e2e8f0;
+  }
+
+  .accordionHeader[aria-expanded="true"] {
+    background: #312e81;
+    color: #a5b4fc;
+  }
+
+  .mode-badge {
+    background: rgba(0, 0, 0, 0.8);
+  }
+}
+

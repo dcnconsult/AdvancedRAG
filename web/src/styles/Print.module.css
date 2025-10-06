@@ -1,0 +1,292 @@
+/**
+ * Print-optimized styles for RAG Comparison Results
+ * 
+ * Optimizes the comparison interface for printing:
+ * - Removes interactive elements
+ * - Optimizes layout for paper
+ * - Ensures readability
+ * - Preserves essential information
+ */
+
+@media print {
+  /* Page Setup */
+  @page {
+    size: A4;
+    margin: 2cm;
+  }
+
+  /* Hide UI Elements */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Root Styles */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt !important;
+    line-height: 1.6 !important;
+  }
+
+  /* Headers */
+  h1 {
+    font-size: 18pt !important;
+    page-break-after: avoid !important;
+    margin-top: 0 !important;
+  }
+
+  h2 {
+    font-size: 14pt !important;
+    page-break-after: avoid !important;
+    margin-top: 12pt !important;
+  }
+
+  h3 {
+    font-size: 12pt !important;
+    page-break-after: avoid !important;
+    margin-top: 10pt !important;
+  }
+
+  /* Avoid Page Breaks */
+  .avoid-break {
+    page-break-inside: avoid !important;
+  }
+
+  /* Technique Cards */
+  .technique-card {
+    page-break-inside: avoid !important;
+    margin-bottom: 1cm !important;
+    border: 1pt solid #000 !important;
+    padding: 0.5cm !important;
+  }
+
+  /* Remove Shadows and Gradients */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .gradient,
+  .background-gradient {
+    background: white !important;
+    background-image: none !important;
+  }
+
+  /* Links */
+  a {
+    text-decoration: underline !important;
+    color: black !important;
+  }
+
+  a[href]:after {
+    content: " (" attr(href) ")";
+    font-size: 9pt;
+    font-style: italic;
+  }
+
+  /* Images */
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Tables */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: avoid !important;
+  }
+
+  th, td {
+    border: 1pt solid #000 !important;
+    padding: 4pt 8pt !important;
+  }
+
+  th {
+    background: #f0f0f0 !important;
+    font-weight: bold !important;
+  }
+
+  /* Source Chunks */
+  .source-chunk {
+    page-break-inside: avoid !important;
+    margin-bottom: 8pt !important;
+    padding: 8pt !important;
+    border-left: 2pt solid #666 !important;
+  }
+
+  /* Metadata */
+  .metadata-grid {
+    page-break-inside: avoid !important;
+  }
+
+  /* Rankings */
+  .ranking-card {
+    page-break-inside: avoid !important;
+    margin-bottom: 8pt !important;
+    border: 1pt solid #000 !important;
+    padding: 8pt !important;
+  }
+
+  /* Performance Bars */
+  .metric-bar,
+  .progress-bar {
+    border: 1pt solid #000 !important;
+    height: 8pt !important;
+  }
+
+  /* Stats */
+  .stat-card {
+    display: inline-block !important;
+    width: 48% !important;
+    margin: 1% !important;
+    page-break-inside: avoid !important;
+    border: 1pt solid #000 !important;
+    padding: 8pt !important;
+  }
+
+  /* Footer */
+  .print-footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 9pt;
+    color: #666;
+    border-top: 1pt solid #000;
+    padding-top: 4pt;
+  }
+
+  /* Page Numbers */
+  .page-number:after {
+    content: counter(page);
+  }
+
+  /* Hide Interactive Elements */
+  button,
+  .button,
+  input,
+  textarea,
+  select,
+  .modal,
+  .dropdown,
+  .tooltip,
+  .nav,
+  .navigation,
+  .menu,
+  .sidebar,
+  .toolbar {
+    display: none !important;
+  }
+
+  /* Expand All Collapsible Content */
+  .collapsed,
+  .hidden {
+    display: block !important;
+    visibility: visible !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Force Black and White for Better Printing */
+  .color-badge,
+  .colored-text {
+    color: black !important;
+    background: white !important;
+  }
+
+  /* Optimize Badge Display */
+  .badge {
+    border: 1pt solid #000 !important;
+    padding: 2pt 6pt !important;
+    display: inline-block !important;
+  }
+
+  /* Technique Headers */
+  .technique-header {
+    background: #f0f0f0 !important;
+    border-bottom: 2pt solid #000 !important;
+    padding: 8pt !important;
+    font-weight: bold !important;
+  }
+
+  /* Insights */
+  .insights-list {
+    page-break-inside: avoid !important;
+    margin: 8pt 0 !important;
+  }
+
+  /* Comparison Grid */
+  .comparison-grid {
+    display: block !important;
+  }
+
+  .comparison-column {
+    page-break-inside: avoid !important;
+    margin-bottom: 1cm !important;
+  }
+
+  /* Scores and Metrics */
+  .score-display {
+    font-weight: bold !important;
+    font-size: 14pt !important;
+  }
+
+  /* Section Breaks */
+  .section-break {
+    page-break-before: always !important;
+  }
+
+  /* Timestamps */
+  .timestamp {
+    font-size: 9pt !important;
+    color: #666 !important;
+  }
+}
+
+/* Print-Specific Classes (use with className="print-only") */
+.print-only {
+  display: none;
+}
+
+@media print {
+  .print-only {
+    display: block !important;
+  }
+}
+
+.print-hide {
+  display: block;
+}
+
+@media print {
+  .print-hide {
+    display: none !important;
+  }
+}
+
+/* Print Header */
+.print-header {
+  display: none;
+}
+
+@media print {
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 1cm;
+    padding-bottom: 0.5cm;
+    border-bottom: 2pt solid #000;
+  }
+
+  .print-header h1 {
+    margin: 0 !important;
+  }
+
+  .print-header .subtitle {
+    font-size: 10pt;
+    color: #666;
+    margin-top: 4pt;
+  }
+}
+
