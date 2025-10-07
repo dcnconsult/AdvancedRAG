@@ -6,14 +6,21 @@
 
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import SessionRestoration from '@/components/SessionRestoration';
+import analytics from '@/lib/analyticsService';
 
 export default function SessionPage() {
   const params = useParams();
   const router = useRouter();
   const sessionId = params?.id as string;
+
+  useEffect(() => {
+    if (sessionId) {
+      analytics.trackWithSession(sessionId, 'session_opened', { page: 'sessions/[id]' }).catch(() => {});
+    }
+  }, [sessionId]);
 
   if (!sessionId) {
     return (

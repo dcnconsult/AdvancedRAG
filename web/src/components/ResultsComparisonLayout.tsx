@@ -17,9 +17,10 @@
  * @since 1.0.0
  */
 
-'use client';
+"use client";
 
 import React, { useState, useEffect } from 'react';
+import analytics from '@/lib/analyticsService';
 
 // ============================================================================
 // Type Definitions
@@ -129,7 +130,10 @@ export const ResultsComparisonLayout: React.FC<ResultsComparisonLayoutProps> = (
                 aria-controls={`tab-panel-${index}`}
                 id={`tab-${index}`}
                 className={`tab-button ${activeTab === index ? 'active' : ''}`}
-                onClick={() => setActiveTab(index)}
+                onClick={() => {
+                  setActiveTab(index);
+                  analytics.track('technique_tab_viewed', { index }).catch(() => {});
+                }}
               >
                 Technique {index + 1}
               </button>
@@ -162,7 +166,13 @@ export const ResultsComparisonLayout: React.FC<ResultsComparisonLayoutProps> = (
               key={index}
               index={index}
               isOpen={activeTab === index}
-              onToggle={() => setActiveTab(activeTab === index ? -1 : index)}
+              onToggle={() => {
+                const next = activeTab === index ? -1 : index;
+                setActiveTab(next);
+                if (next === index) {
+                  analytics.track('technique_tab_viewed', { index }).catch(() => {});
+                }
+              }}
             >
               {child}
             </AccordionItem>

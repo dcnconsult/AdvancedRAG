@@ -4,6 +4,9 @@ import "./globals.css";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { AuthErrorBoundary } from "@/components/AuthErrorBoundary";
+import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
+import { SessionTracker } from "@/components/SessionTracker";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,13 +33,18 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>
-          <QueryProvider>
-            <AuthErrorBoundary>
-              {children}
-            </AuthErrorBoundary>
-          </QueryProvider>
-        </AuthProvider>
+        <GlobalErrorBoundary enableErrorLogging={true}>
+          <AuthProvider>
+            <QueryProvider>
+              <AuthErrorBoundary>
+                <SessionTracker>
+                  <OfflineIndicator variant="banner" className="mb-4" />
+                  {children}
+                </SessionTracker>
+              </AuthErrorBoundary>
+            </QueryProvider>
+          </AuthProvider>
+        </GlobalErrorBoundary>
       </body>
     </html>
   );

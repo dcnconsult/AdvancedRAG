@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import analytics from '@/lib/analyticsService';
 
 interface Domain {
   id: string;
@@ -243,14 +244,12 @@ export const QueryConfiguration: React.FC<QueryConfigurationProps> = ({
     router.push(`/results?${params.toString()}`);
 
     // Track query submission analytics
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', 'query_submitted', {
-        event_category: 'engagement',
-        event_label: config.domain!.name,
-        technique_count: config.selectedTechniques.length,
-        query_length: config.query.length
-      });
-    }
+    analytics.track('query_submitted', {
+      event_category: 'engagement',
+      event_label: config.domain!.name,
+      technique_count: config.selectedTechniques.length,
+      query_length: config.query.length
+    });
   };
 
   const isFormValid = Object.keys(errors).length === 0 &&

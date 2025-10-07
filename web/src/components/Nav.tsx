@@ -9,6 +9,8 @@ const publicLinks = [
   { href: "/query-builder", label: "Query Builder" },
   { href: "/results", label: "Results" },
   { href: "/sessions", label: "Sessions" },
+  { href: "/analytics-dashboard", label: "Analytics" },
+  { href: "/error-monitoring", label: "Error Monitor" },
   { href: "/reranking-demo", label: "Re-ranking Demo" },
   { href: "/two-stage-retrieval-demo", label: "Two-Stage Pipeline" },
   { href: "/metadata-dashboard", label: "Metadata Dashboard" },

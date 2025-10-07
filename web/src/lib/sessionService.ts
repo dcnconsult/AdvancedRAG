@@ -16,6 +16,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import analytics from '@/lib/analyticsService';
 import { TechniqueResult } from '@/components/TechniqueComparisonCard';
 import { RankingComparison } from '@/lib/performanceRanking';
 
@@ -180,7 +181,13 @@ export class SessionService {
           .single();
 
         if (error) throw error;
-        return this.deserializeSession(data);
+        const saved = this.deserializeSession(data);
+        // Log session_created event (best-effort)
+        analytics.trackWithSession(saved.id!, 'session_created', {
+          domain_id: saved.domain_id,
+          technique_count: saved.selected_techniques.length
+        }).catch(() => {});
+        return saved;
       }
     } catch (error) {
       console.error('Failed to save session:', error);
