@@ -1,0 +1,9 @@
+This is a sample document about artificial intelligence.
+AI is a broad field of computer science that deals with the creation of intelligent agents, which are systems that can reason, learn, and act autonomously.
+
+Key Areas of AI:
+- Machine Learning (ML)
+- Natural Language Processing (NLP)
+- Computer Vision
+- Robotics
+- Knowledge Representation

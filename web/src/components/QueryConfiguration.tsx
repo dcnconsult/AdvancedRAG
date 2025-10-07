@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import analytics from '@/lib/analyticsService';
+import { RAGQueryConfig, RAGQueryConfigSchema } from '@/lib/validationSchemas';
 
 interface Domain {
   id: string;
@@ -118,6 +119,7 @@ export const QueryConfiguration: React.FC<QueryConfigurationProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Load domains from API (mock for now)
   const [domains, setDomains] = useState<Domain[]>(preloadedDomains);
@@ -230,9 +232,20 @@ export const QueryConfiguration: React.FC<QueryConfigurationProps> = ({
   };
 
   const handleSubmit = () => {
-    if (Object.keys(errors).length > 0) {
+    const config: RAGQueryConfig = {
+      query: config.query,
+      techniques: config.selectedTechniques,
+      domain_id: config.domain!.id,
+    };
+
+    const validationResult = RAGQueryConfigSchema.safeParse(config);
+
+    if (!validationResult.success) {
+      setValidationError(validationResult.error.errors.map(e => e.message).join(', '));
       return;
     }
+
+    setValidationError(null);
 
     // Navigate to results page with configuration
     const params = new URLSearchParams({
@@ -456,6 +469,11 @@ export const QueryConfiguration: React.FC<QueryConfigurationProps> = ({
               </p>
             </div>
           </div>
+        </div>
+      )}
+      {validationError && (
+        <div className="mt-4 p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-lg border border-red-200 dark:border-red-800">
+          <p className="text-sm">{validationError}</p>
         </div>
       )}
     </div>

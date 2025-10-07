@@ -550,18 +550,22 @@ class AdvancedChunkingService {
   }
 
   private async applyQualityScoring(chunks: any[], metadata: any): Promise<any[]> {
-    // Apply basic quality scoring based on chunk characteristics
-    return chunks.map(chunk => ({
-      ...chunk,
-      metadata: {
-        ...chunk.metadata,
-        qualityScore: this.calculateChunkQuality(chunk, metadata),
-        qualityLevel: this.getQualityLevel(chunk.metadata.qualityScore)
-      }
-    }))
+    // Apply basic quality scoring based on chunk characteristics in parallel
+    return Promise.all(chunks.map(async (chunk) => {
+      const qualityScore = await this.calculateChunkQuality(chunk, metadata);
+      return {
+        ...chunk,
+        metadata: {
+          ...chunk.metadata,
+          qualityScore,
+          qualityLevel: this.getQualityLevel(qualityScore),
+        },
+      };
+    }));
   }
 
-  private calculateChunkQuality(chunk: any, metadata: any): number {
+  private async calculateChunkQuality(chunk: any, metadata: any): Promise<number> {
+    // This is now async to simulate more complex, potentially I/O-bound scoring
     let score = 0.5 // Base score
 
     // Length appropriateness (not too short, not too long)
@@ -580,7 +584,7 @@ class AdvancedChunkingService {
       score += 0.1
     }
 
-    return Math.min(1.0, Math.max(0.0, score))
+    return Promise.resolve(Math.min(1.0, Math.max(0.0, score)));
   }
 
   private getQualityLevel(score: number): string {
@@ -591,9 +595,13 @@ class AdvancedChunkingService {
   }
 
   private async optimizeStrategySelection(chunks: any[], strategy: string, metadata: any): Promise<any[]> {
-    // For now, just return chunks as-is
     // In production, this could analyze chunk quality and suggest strategy improvements
-    return chunks
+    // Here we simulate an async optimization process for each chunk in parallel
+    return Promise.all(chunks.map(async (chunk) => {
+      // Simulate some async optimization logic, e.g., re-evaluating chunk boundaries
+      await new Promise(resolve => setTimeout(resolve, 1)); // non-blocking delay
+      return chunk;
+    }));
   }
 
   private calculateQualityMetrics(chunks: any[]): any {

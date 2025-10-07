@@ -22,6 +22,7 @@ import { useLoadSession } from '@/hooks/useSession';
 import { RAGSession } from '@/lib/sessionService';
 import ResultsComparisonLayout from '@/components/ResultsComparisonLayout';
 import { PerformanceRankingDisplay } from '@/components/PerformanceRankingDisplay';
+import { sanitizationService } from '@/lib/sanitizationService';
 
 // ============================================================================
 // Type Definitions
@@ -662,7 +663,10 @@ const SessionMetadataView: React.FC<SessionMetadataViewProps> = ({ metadata }) =
         {metadata.user_notes && (
           <div className="notes-section">
             <h3 className="notes-title">📝 Notes</h3>
-            <p className="notes-text">{metadata.user_notes}</p>
+            <div
+              className="notes-text"
+              dangerouslySetInnerHTML={{ __html: sanitizationService.sanitize(metadata.user_notes) }}
+            />
           </div>
         )}
 

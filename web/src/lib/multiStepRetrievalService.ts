@@ -12,6 +12,8 @@
 import { AgentReasoningService, QueryDecompositionResult, SynthesisResult, IterationResult } from './agentReasoningService';
 import { QueryClassificationResult, RetrievalStrategy } from './queryClassificationService';
 import { StrategySelectionResult } from './retrievalStrategyService';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { PipelineOrchestrator } from '../../../supabase/functions/_shared/pipelineOrchestrator';
 
 /**
  * Retrieval step configuration
@@ -97,13 +99,16 @@ export interface MultiStepRetrievalConfig {
  */
 export class MultiStepRetrievalService {
   private agentReasoningService: AgentReasoningService;
+  private orchestrator: PipelineOrchestrator;
   private config: Required<MultiStepRetrievalConfig>;
 
   constructor(
     agentReasoningService: AgentReasoningService,
+    supabaseClient: SupabaseClient,
     config?: Partial<MultiStepRetrievalConfig>
   ) {
     this.agentReasoningService = agentReasoningService;
+    this.orchestrator = new PipelineOrchestrator({ enableLogging: true }, supabaseClient);
     this.config = {
       enableDecomposition: true,
       enableParallelExecution: true,
@@ -344,24 +349,32 @@ export class MultiStepRetrievalService {
     const startTime = Date.now();
     
     try {
-      // This is a placeholder for actual retrieval execution
-      // In a real implementation, this would call the appropriate retrieval services
-      const mockResults = this.generateMockRetrievalResults(config);
+      const response = await this.orchestrator.executeTechnique(config.strategy as any, {
+        query: config.query,
+        // Assuming other necessary params are in config.parameters
+        ...config.parameters,
+        request_id: crypto.randomUUID(),
+      });
+
+      if (response.status === 'failed') {
+        throw new Error(response.error?.message || 'Retrieval step failed');
+      }
       
       const executionTime = Date.now() - startTime;
+      const results = response.source_chunks || [];
       
       return {
         stepId: config.stepId,
         query: config.query,
-        results: mockResults,
+        results: results,
         executionTime,
         success: true,
         metadata: {
           strategy: config.strategy,
           parameters: config.parameters,
-          resultCount: mockResults.length,
-          avgScore: mockResults.reduce((sum, r) => sum + (r.score || 0), 0) / mockResults.length,
-          confidence: 0.8,
+          resultCount: results.length,
+          avgScore: results.reduce((sum, r) => sum + (r.score || 0), 0) / (results.length || 1),
+          confidence: response.metadata?.confidence || 0.8,
         },
       };
 
@@ -563,34 +576,8 @@ export class MultiStepRetrievalService {
    * Generate mock retrieval results for testing
    */
   private generateMockRetrievalResults(config: RetrievalStepConfig): any[] {
-    const baseResults = [
-      {
-        id: `mock-${config.stepId}-1`,
-        content: `Mock result for step "${config.stepId}": ${config.query}`,
-        score: 0.9,
-        source: `mock-source-${config.stepId}-1`,
-        metadata: { stepId: config.stepId, strategy: config.strategy }
-      },
-      {
-        id: `mock-${config.stepId}-2`,
-        content: `Another mock result for step "${config.stepId}"`,
-        score: 0.8,
-        source: `mock-source-${config.stepId}-2`,
-        metadata: { stepId: config.stepId, strategy: config.strategy }
-      }
-    ];
-
-    // Adjust results based on strategy
-    switch (config.strategy) {
-      case 'multi_pass':
-        return [...baseResults, ...baseResults.map(r => ({ ...r, id: r.id + '_pass2' }))];
-      case 'hybrid_approach':
-        return baseResults.map(r => ({ ...r, hybridScore: r.score * 0.9 }));
-      case 'iterative_refine':
-        return baseResults.map(r => ({ ...r, iteration: 1, refinedScore: r.score }));
-      default:
-        return baseResults;
-    }
+    // This method is now deprecated in favor of executeRetrievalStep
+    return [];
   }
 
   /**

@@ -39,31 +39,44 @@ export function useSessionService() {
  * Hook for saving sessions
  */
 export function useSaveSession() {
-  const service = useSessionService();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedSession, setSavedSession] = useState<RAGSession | null>(null);
 
-  const saveSession = useCallback(
-    async (session: RAGSession, options?: SessionSaveOptions) => {
-      setSaving(true);
-      setError(null);
-      setSavedSession(null);
+  const saveSession = useCallback(async (
+    session: RAGSession, 
+    options: { include_rankings: boolean; include_metadata: boolean },
+    headers: Record<string, string>
+  ) => {
+    setSaving(true);
+    setError(null);
+    setSavedSession(null);
 
-      try {
-        const saved = await service.saveSession(session, options);
-        setSavedSession(saved);
-        return saved;
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to save session';
-        setError(errorMessage);
-        throw err;
-      } finally {
-        setSaving(false);
+    try {
+      const response = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify({ session, options }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save session');
       }
-    },
-    [service]
-  );
+
+      const newSession = await response.json();
+      setSavedSession(newSession);
+      return newSession;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  }, []);
 
   const reset = useCallback(() => {
     setError(null);

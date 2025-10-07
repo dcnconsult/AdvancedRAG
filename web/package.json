@@ -6,7 +6,12 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:e2e": "playwright test",
+    "benchmark": "node -r ts-node/register web/scripts/benchmarking/run.ts",
+    "db:seed": "ts-node scripts/seed.ts",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@supabase/auth-ui-react": "^0.4.7",
@@ -25,6 +30,7 @@
     "@types/node": "^20.19.19",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "babel-jest": "^30.2.0",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
     "tailwindcss": "^4",

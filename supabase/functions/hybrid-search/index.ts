@@ -88,124 +88,11 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: Perform semantic search
-    let semanticResults: any[] = [];
-    try {
-      // Generate embedding for the query
-      const embeddingResponse = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: query,
-      });
-      const queryEmbedding = embeddingResponse.data[0].embedding;
-
-      // Call semantic search RPC function
-      const { data: semanticData, error: semanticError } = await supabase.rpc('semantic_search', {
-        query_embedding: queryEmbedding,
-        doc_ids: documentIds,
-        user_id: userId,
-        match_limit: semanticLimit,
-        similarity_threshold: semanticThreshold,
-      });
-
-      if (semanticError) {
-        console.warn('Semantic search failed:', semanticError);
-      } else {
-        semanticResults = semanticData || [];
-      }
-    } catch (error) {
-      console.warn('Semantic search error:', error);
-    }
-
-    // Step 2: Perform lexical search
-    let lexicalResults: any[] = [];
-    try {
-      let processedQuery = query.trim().replace(/\s+/g, ' ');
-      
-      // Expand query if enabled
-      if (enableQueryExpansion) {
-        const { data: expandedQuery, error: expandError } = await supabase.rpc('expand_search_query', {
-          original_query: processedQuery
-        });
-        
-        if (!expandError && expandedQuery) {
-          processedQuery = expandedQuery;
-        }
-      }
-
-      // Perform lexical search based on type
-      switch (lexicalSearchType) {
-        case 'bm25':
-          const { data: bm25Data, error: bm25Error } = await supabase.rpc('bm25_search', {
-            search_query: processedQuery,
-            doc_ids: documentIds,
-            user_id: userId,
-            match_limit: lexicalLimit
-          });
-          if (!bm25Error) {
-            lexicalResults = (bm25Data || []).map((item: any) => ({
-              ...item,
-              lexical_score: item.bm25_score
-            }));
-          }
-          break;
-
-        case 'phrase':
-          const { data: phraseData, error: phraseError } = await supabase.rpc('phrase_search', {
-            search_query: processedQuery,
-            doc_ids: documentIds,
-            user_id: userId,
-            match_limit: lexicalLimit
-          });
-          if (!phraseError) {
-            lexicalResults = (phraseData || []).map((item: any) => ({
-              ...item,
-              lexical_score: item.phrase_score
-            }));
-          }
-          break;
-
-        case 'proximity':
-          const terms = processedQuery.split(' ');
-          const { data: proximityData, error: proximityError } = await supabase.rpc('proximity_search', {
-            search_terms: terms,
-            proximity_distance: proximityDistance,
-            doc_ids: documentIds,
-            user_id: userId,
-            match_limit: lexicalLimit
-          });
-          if (!proximityError) {
-            lexicalResults = (proximityData || []).map((item: any) => ({
-              ...item,
-              lexical_score: item.proximity_score
-            }));
-          }
-          break;
-
-        default: // basic search
-          const { data: basicData, error: basicError } = await supabase
-            .from('document_chunks')
-            .select(`
-              id,
-              content,
-              metadata,
-              ts_rank(search_vector, plainto_tsquery('english', $1)) as lexical_score
-            `)
-            .textSearch('search_vector', processedQuery, {
-              type: 'websearch',
-              config: 'english'
-            })
-            .in('document_id', documentIds)
-            .order('lexical_score', { ascending: false })
-            .limit(lexicalLimit);
-
-          if (!basicError) {
-            lexicalResults = basicData || [];
-          }
-          break;
-      }
-    } catch (error) {
-      console.warn('Lexical search error:', error);
-    }
+    // Steps 1 & 2: Perform semantic and lexical searches in parallel
+    const [semanticResults, lexicalResults] = await Promise.all([
+      performSemanticSearch(supabase, openai, query, documentIds, userId, semanticLimit, semanticThreshold),
+      performLexicalSearch(supabase, query, documentIds, userId, lexicalLimit, lexicalSearchType, enableQueryExpansion, proximityDistance),
+    ]);
 
     // Step 3: Filter lexical results by threshold
     const filteredLexicalResults = lexicalResults.filter(
@@ -509,4 +396,119 @@ function calculateAdaptiveScores(results: HybridSearchResult[], semanticWeight: 
       (result.semantic_score * adaptiveSemanticWeight) + 
       (result.lexical_score * adaptiveLexicalWeight);
   });
+}
+
+// Placeholder for semantic search logic
+async function performSemanticSearch(supabase, openai, query, documentIds, userId, semanticLimit, semanticThreshold) {
+  try {
+    // Generate embedding for the query
+    const embeddingResponse = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: query,
+    });
+    const queryEmbedding = embeddingResponse.data[0].embedding;
+
+    // Call semantic search RPC function
+    const { data: semanticData, error: semanticError } = await supabase.rpc('semantic_search', {
+      query_embedding: queryEmbedding,
+      doc_ids: documentIds,
+      user_id: userId,
+      match_limit: semanticLimit,
+      similarity_threshold: semanticThreshold,
+    });
+
+    if (semanticError) {
+      console.warn('Semantic search failed:', semanticError);
+      return [];
+    }
+    return semanticData || [];
+  } catch (error) {
+    console.warn('Semantic search error:', error);
+    return [];
+  }
+}
+
+// Placeholder for lexical search logic
+async function performLexicalSearch(supabase, query, documentIds, userId, lexicalLimit, lexicalSearchType, enableQueryExpansion, proximityDistance) {
+  try {
+    let processedQuery = query.trim().replace(/\s+/g, ' ');
+    
+    // Expand query if enabled
+    if (enableQueryExpansion) {
+      const { data: expandedQuery, error: expandError } = await supabase.rpc('expand_search_query', {
+        original_query: processedQuery
+      });
+      
+      if (!expandError && expandedQuery) {
+        processedQuery = expandedQuery;
+      }
+    }
+
+    // Perform lexical search based on type
+    switch (lexicalSearchType) {
+      case 'bm25':
+        const { data: bm25Data, error: bm25Error } = await supabase.rpc('bm25_search', {
+          search_query: processedQuery,
+          doc_ids: documentIds,
+          user_id: userId,
+          match_limit: lexicalLimit
+        });
+        if (bm25Error) return [];
+        return (bm25Data || []).map((item: any) => ({
+          ...item,
+          lexical_score: item.bm25_score
+        }));
+
+      case 'phrase':
+        const { data: phraseData, error: phraseError } = await supabase.rpc('phrase_search', {
+          search_query: processedQuery,
+          doc_ids: documentIds,
+          user_id: userId,
+          match_limit: lexicalLimit
+        });
+        if (phraseError) return [];
+        return (phraseData || []).map((item: any) => ({
+          ...item,
+          lexical_score: item.phrase_score
+        }));
+
+      case 'proximity':
+        const terms = processedQuery.split(' ');
+        const { data: proximityData, error: proximityError } = await supabase.rpc('proximity_search', {
+          search_terms: terms,
+          proximity_distance: proximityDistance,
+          doc_ids: documentIds,
+          user_id: userId,
+          match_limit: lexicalLimit
+        });
+        if (proximityError) return [];
+        return (proximityData || []).map((item: any) => ({
+          ...item,
+          lexical_score: item.proximity_score
+        }));
+
+      default: // basic search
+        const { data: basicData, error: basicError } = await supabase
+          .from('document_chunks')
+          .select(`
+            id,
+            content,
+            metadata,
+            ts_rank(search_vector, plainto_tsquery('english', $1)) as lexical_score
+          `)
+          .textSearch('search_vector', processedQuery, {
+            type: 'websearch',
+            config: 'english'
+          })
+          .in('document_id', documentIds)
+          .order('lexical_score', { ascending: false })
+          .limit(lexicalLimit);
+
+        if (basicError) return [];
+        return basicData || [];
+    }
+  } catch (error) {
+    console.warn('Lexical search error:', error);
+    return [];
+  }
 }

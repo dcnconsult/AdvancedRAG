@@ -4,17 +4,25 @@
  * Simplified version for Edge Function deployment with core types and validation.
  */
 
-// Basic type definitions
-export type RAGTechniqueType =
-  | 'semantic-search'
-  | 'lexical-search'
-  | 'hybrid-search'
-  | 'contextual-retrieval'
-  | 'reranking'
-  | 'two-stage-retrieval'
-  | 'agentic-rag'
-  | 'query-preprocessing';
+import { RAGResponse, RAGTechniqueType } from './ragApiContracts.ts';
+import { z } from 'https://deno.land/x/zod@v3.23.4/mod.ts';
 
+// Zod schema for RAGQueryConfig validation
+export const RAGQueryConfigSchema = z.object({
+  query: z.string().min(3, { message: "Query must be at least 3 characters long." }),
+  techniques: z.array(z.string()).min(1, { message: "At least one technique must be selected." }),
+  domain_id: z.string().uuid({ message: "Invalid domain ID." }).optional(),
+  document_ids: z.array(z.string().uuid()).optional(),
+  execution_mode: z.enum(['parallel', 'sequential', 'dependency-resolved']).optional(),
+  parameters: z.record(z.any()).optional(),
+  user_id: z.string().uuid().optional(),
+  request_id: z.string().uuid().optional(),
+});
+
+
+/**
+ * Configuration for a RAG query
+ */
 export interface RAGQueryConfig {
   query: string;
   techniques: RAGTechniqueType[];
@@ -24,6 +32,7 @@ export interface RAGQueryConfig {
   limit?: number;
   threshold?: number;
   timeout?: number;
+  request_id?: string;
 }
 
 export interface SourceChunk {
@@ -70,20 +79,19 @@ export interface RAGBatchResponse {
   metadata?: any;
 }
 
-export function validateQueryConfig(config: any): { success: boolean; data?: RAGQueryConfig; error?: any } {
-  if (!config.query || typeof config.query !== 'string') {
-    return { success: false, error: { message: 'query is required and must be a string' } };
+/**
+ * Validates a RAG query configuration object.
+ * This is now a wrapper around the Zod schema.
+ * @param config - The configuration object to validate.
+ * @returns An object indicating success or failure with error details.
+ */
+export function validateQueryConfig(config: unknown): { success: boolean; data?: RAGQueryConfig; error?: z.ZodError } {
+  const result = RAGQueryConfigSchema.safeParse(config);
+  if (result.success) {
+    return { success: true, data: result.data as RAGQueryConfig };
+  } else {
+    return { success: false, error: result.error };
   }
-  
-  if (!Array.isArray(config.techniques) || config.techniques.length === 0) {
-    return { success: false, error: { message: 'techniques must be a non-empty array' } };
-  }
-  
-  if (!Array.isArray(config.document_ids)) {
-    return { success: false, error: { message: 'document_ids must be an array' } };
-  }
-  
-  return { success: true, data: config as RAGQueryConfig };
 }
 
 export function createRAGError(code: string, message: string): any {

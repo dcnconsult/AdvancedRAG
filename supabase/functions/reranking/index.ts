@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -336,7 +337,7 @@ serve(async (req) => {
 
     // Log performance metrics
     if (performanceMonitoring.enabled) {
-      await logPerformanceMetrics(userId, query, metrics, rerankingProvider, model);
+      await logPerformanceMetrics(supabase, userId, query, metrics, rerankingProvider, model);
     }
 
     // Log reranking analytics
@@ -382,7 +383,7 @@ serve(async (req) => {
     console.error('Re-ranking Edge Function error:', error);
     
     // Log error metrics
-    await logErrorMetrics(error, metrics);
+    await logErrorMetrics(supabase, error, metrics);
     
     return new Response(
       JSON.stringify({ 
@@ -852,11 +853,75 @@ async function performCrossEncoderReRanking(
   topK: number,
   metrics: PerformanceMetrics
 ): Promise<ReRankingResult[]> {
-  // This would integrate with a cross-encoder model
-  // For now, implement a sophisticated fallback
-  console.log('Cross-encoder re-ranking not yet implemented, using enhanced fallback');
+  const hfApiKey = Deno.env.get('HUGGINGFACE_API_KEY');
+  if (!hfApiKey) {
+    console.warn('HUGGINGFACE_API_KEY not configured, falling back to basic re-ranking.');
+    return performEnhancedFallbackReRanking(documents, topK, metrics, 'cross_encoder_fallback', model);
+  }
+
+  metrics.api_calls_count++;
+  const apiStartTime = performance.now();
+
+  const inputs = documents.map(doc => [query, doc.content.substring(0, 512)]);
   
-  return performEnhancedFallbackReRanking(documents, topK, metrics, 'cross_encoder', model);
+  const response = await fetch(
+    `https://api-inference.huggingface.co/models/${model || 'cross-encoder/ms-marco-MiniLM-L-6-v2'}`,
+    {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${hfApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ inputs }),
+    }
+  );
+
+  const apiTime = performance.now() - apiStartTime;
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Hugging Face API error: ${response.status} ${errorText}`);
+  }
+
+  const scores: number[] = await response.json();
+
+  const rankedDocs = documents.map((doc, index) => ({
+    ...doc,
+    reranking_score: scores[index],
+  }));
+
+  const sortedDocs = rankedDocs
+    .sort((a, b) => b.reranking_score - a.reranking_score)
+    .slice(0, topK);
+  
+  metrics.cost_usd += calculateHfCost(documents.length, model);
+
+  return sortedDocs.map((doc, index) => {
+    const scoreImprovement = doc.reranking_score - doc.initial_score;
+    return {
+      id: doc.id,
+      content: doc.content,
+      metadata: doc.metadata,
+      initial_score: doc.initial_score,
+      initial_rank: doc.initial_rank,
+      reranking_score: doc.reranking_score,
+      reranking_rank: index + 1,
+      confidence_score: doc.reranking_score,
+      model_used: model || 'cross-encoder/ms-marco-MiniLM-L-6-v2',
+      provider: 'cross_encoder',
+      processing_time_ms: apiTime / documents.length,
+      cost_usd: calculateHfCost(1, model),
+      cache_hit: false,
+      quality_indicators: {
+        score_improvement: scoreImprovement,
+        rank_stability: calculateRankStability(doc.initial_rank, index + 1),
+        confidence_interval: [
+          Math.max(0, doc.reranking_score - 0.1),
+          Math.min(1, doc.reranking_score + 0.1),
+        ],
+      },
+    };
+  });
 }
 
 /**
@@ -981,6 +1046,12 @@ function calculateCohereCost(documentCount: number, model: string): number {
   return (documentCount * basePrice) / 1000; // Approximate cost
 }
 
+function calculateHfCost(documentCount: number, model: string): number {
+  // This is an approximation. Real cost depends on instance usage.
+  const costPerThousandDocs = 0.005; // Example cost
+  return (documentCount / 1000) * costPerThousandDocs;
+}
+
 /**
  * Calculate rank stability
  */
@@ -1008,6 +1079,7 @@ function calculateRecencyBonus(timestamp?: string): number {
  * Log performance metrics
  */
 async function logPerformanceMetrics(
+  supabase: SupabaseClient,
   userId: string,
   query: string,
   metrics: PerformanceMetrics,
@@ -1015,15 +1087,21 @@ async function logPerformanceMetrics(
   model: string
 ): Promise<void> {
   try {
-    // In a real implementation, this would log to a metrics service
-    console.log('Performance Metrics:', {
-      userId,
-      query: query.substring(0, 100),
-      metrics,
-      provider,
-      model,
-      timestamp: new Date().toISOString()
+    const { error } = await supabase.from('monitoring_logs').insert({
+      service_name: 'reranking',
+      log_type: 'performance',
+      user_id: userId,
+      metrics: {
+        ...metrics,
+        provider,
+        model,
+        query: query.substring(0, 100), // Truncate for logging
+      },
     });
+
+    if (error) {
+      console.warn('Failed to log performance metrics to database:', error);
+    }
   } catch (error) {
     console.warn('Failed to log performance metrics:', error);
   }
@@ -1032,14 +1110,19 @@ async function logPerformanceMetrics(
 /**
  * Log error metrics
  */
-async function logErrorMetrics(error: Error, metrics: PerformanceMetrics): Promise<void> {
+async function logErrorMetrics(supabase: SupabaseClient, error: Error, metrics: PerformanceMetrics): Promise<void> {
   try {
-    console.error('Error Metrics:', {
-      error: error.message,
-      stack: error.stack,
+    const { error: insertError } = await supabase.from('monitoring_logs').insert({
+      service_name: 'reranking',
+      log_type: 'error',
+      error_message: error.message,
+      error_stack: error.stack,
       metrics,
-      timestamp: new Date().toISOString()
     });
+
+    if (insertError) {
+      console.error('Failed to log error metrics to database:', insertError);
+    }
   } catch (logError) {
     console.warn('Failed to log error metrics:', logError);
   }

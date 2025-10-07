@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import { cachingService } from './cachingService';
+import { enhancedSupabase } from './supabaseClient';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -36,11 +38,30 @@ export class QueryPreprocessingService {
   private vocabulary: Set<string> = new Set();
   private domainSynonyms: Map<string, string[]> = new Map();
   private questionPatterns: Array<{ pattern: RegExp; replacement: string }> = [];
+  private synonyms: Map<string, string>;
+  private expansions: Map<string, string>;
+  private piiPatterns: RegExp[];
+  private config: QueryPreprocessingConfig;
+  private rulesLastLoaded: number = 0;
+  private readonly RULES_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-  constructor() {
+  constructor(config: Partial<QueryPreprocessingConfig> = {}) {
+    this.config = {
+      enableSpellCorrection: true,
+      enableSynonymExpansion: true,
+      enableQueryReformulation: true,
+      maxSynonyms: 3,
+      similarityThreshold: 0.7,
+      preserveEntities: true,
+      ...config
+    };
+    this.synonyms = new Map();
+    this.expansions = new Map();
+    this.piiPatterns = [];
     this.initializePatterns();
     this.loadVocabulary();
     this.loadDomainSynonyms();
+    this.loadRules();
   }
 
   /**
@@ -418,6 +439,58 @@ export class QueryPreprocessingService {
       console.error('Error loading domain synonyms:', error);
       this.domainSynonyms = new Map();
     }
+  }
+
+  private async loadRules(): Promise<void> {
+    const cacheKey = 'query_preprocessing_rules';
+    const now = Date.now();
+
+    if (now - this.rulesLastLoaded < this.RULES_CACHE_TTL) {
+      const cachedRules = cachingService.get<any>(cacheKey);
+      if (cachedRules) {
+        this.synonyms = new Map(cachedRules.synonyms);
+        this.expansions = new Map(cachedRules.expansions);
+        this.piiPatterns = cachedRules.piiPatterns.map(p => new RegExp(p.source, p.flags));
+        return;
+      }
+    }
+
+    const { data: rules, error } = await enhancedSupabase
+      .getClient()
+      .from('query_preprocessing_rules')
+      .select('rule_type, pattern, replacement')
+      .eq('is_active', true);
+
+    if (error) {
+      console.error('Failed to load query preprocessing rules:', error);
+      // Fallback to empty rules
+      this.synonyms.clear();
+      this.expansions.clear();
+      this.piiPatterns = [];
+      return;
+    }
+
+    this.synonyms.clear();
+    this.expansions.clear();
+    this.piiPatterns = [];
+
+    for (const rule of rules) {
+      if (rule.rule_type === 'synonym' && rule.replacement) {
+        this.synonyms.set(rule.pattern, rule.replacement);
+      } else if (rule.rule_type === 'expansion' && rule.replacement) {
+        this.expansions.set(rule.pattern, rule.replacement);
+      } else if (rule.rule_type === 'pii_detection') {
+        this.piiPatterns.push(new RegExp(rule.pattern, 'gi'));
+      }
+    }
+
+    cachingService.set(cacheKey, {
+      synonyms: Array.from(this.synonyms.entries()),
+      expansions: Array.from(this.expansions.entries()),
+      piiPatterns: this.piiPatterns.map(p => ({ source: p.source, flags: p.flags })),
+    }, this.RULES_CACHE_TTL);
+    
+    this.rulesLastLoaded = now;
   }
 
   /**

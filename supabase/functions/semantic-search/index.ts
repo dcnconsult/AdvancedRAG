@@ -65,33 +65,15 @@ serve(async (req) => {
 
     const startTime = Date.now()
 
-    // Generate query embedding using OpenAI
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiApiKey) {
-      throw new Error('OPENAI_API_KEY is not set')
-    }
+    // Generate query embeddings in parallel if contextual search is enabled
+    const [mainEmbedding, contextualEmbedding] = await Promise.all([
+      generateEmbedding(query, openaiApiKey),
+      useContextualEmbedding ? generateEmbedding(query, openaiApiKey, 'contextual') : Promise.resolve(null)
+    ]);
 
-    const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: query,
-      }),
-    })
-
-    if (!embeddingResponse.ok) {
-      throw new Error(`OpenAI API error: ${embeddingResponse.statusText}`)
-    }
-
-    const embeddingData = await embeddingResponse.json()
-    const queryEmbedding = embeddingData.data[0].embedding
-
-    // Choose embedding column based on contextual search preference
-    const embeddingColumn = useContextualEmbedding ? 'contextual_embedding' : 'embedding'
+    // Choose embedding column and query embedding
+    const embeddingColumn = useContextualEmbedding && contextualEmbedding ? 'contextual_embedding' : 'embedding';
+    const queryEmbedding = useContextualEmbedding && contextualEmbedding ? contextualEmbedding : mainEmbedding;
     
     // Build the semantic search query
     let searchQuery = supabaseClient
@@ -174,3 +156,25 @@ serve(async (req) => {
     )
   }
 })
+
+async function generateEmbedding(text: string, apiKey: string, type: 'main' | 'contextual' = 'main') {
+  // In a real implementation, 'contextual' might involve a different model or prompt enrichment
+  const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'text-embedding-3-small',
+      input: text,
+    }),
+  });
+
+  if (!embeddingResponse.ok) {
+    throw new Error(`OpenAI API error for ${type} embedding: ${embeddingResponse.statusText}`);
+  }
+
+  const embeddingData = await embeddingResponse.json();
+  return embeddingData.data[0].embedding;
+}

@@ -14,6 +14,7 @@ import React, { useState, useEffect } from 'react';
 import { TechniqueResult } from '@/components/TechniqueComparisonCard';
 import { RankingComparison } from '@/lib/performanceRanking';
 import { useSaveSession } from '@/hooks/useSession';
+import { useCsrf } from '@/hooks/useCsrf';
 import {
   RAGSession,
   SessionService,
@@ -75,6 +76,7 @@ export const SaveSessionDialog: React.FC<SaveSessionDialogProps> = ({
   className = '',
 }) => {
   const { saveSession, saving, error: saveError, savedSession, reset } = useSaveSession();
+  const { getHeaders } = useCsrf();
   
   const [sessionName, setSessionName] = useState('');
   const [includeRankings, setIncludeRankings] = useState(true);
@@ -139,7 +141,7 @@ export const SaveSessionDialog: React.FC<SaveSessionDialogProps> = ({
       await saveSession(session, {
         include_rankings: includeRankings,
         include_metadata: includeMetadata,
-      });
+      }, getHeaders());
     } catch (err) {
       // Error handled by hook
       console.error('Save failed:', err);

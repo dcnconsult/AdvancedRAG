@@ -9,7 +9,12 @@
 
 import React from 'react';
 import { AuthGuard } from '@/components/AuthGuard';
-import AnalyticsDashboard from '@/components/AnalyticsDashboard';
+import dynamic from 'next/dynamic';
+
+const AnalyticsDashboard = dynamic(() => import('@/components/AnalyticsDashboard'), {
+  ssr: false,
+  loading: () => <p>Loading Dashboard...</p>
+});
 
 export default function AnalyticsDashboardPage() {
   return (

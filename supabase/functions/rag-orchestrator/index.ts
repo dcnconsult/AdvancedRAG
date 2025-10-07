@@ -18,7 +18,7 @@
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders } from '../_shared/cors.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import {
   RAGQueryConfig,
@@ -36,6 +36,7 @@ import {
   PerformanceMonitor,
   HealthMonitor,
 } from '../_shared/monitoring.ts';
+import { RateLimiter } from '../_shared/rateLimiter.ts';
 
 // ============================================================================
 // Configuration
@@ -51,6 +52,7 @@ const metricsCollector = new MetricsCollector();
 const costTracker = new CostTracker();
 const performanceMonitor = new PerformanceMonitor();
 const healthMonitor = new HealthMonitor();
+const rateLimiter = new RateLimiter();
 
 // Initialize orchestrator and aggregator
 const orchestrator = new PipelineOrchestrator({
@@ -71,6 +73,8 @@ const aggregator = new RAGResultAggregator({
 // ============================================================================
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req.headers.get('Origin'));
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -102,22 +106,33 @@ serve(async (req: Request) => {
       );
     }
 
+    // Apply rate limiting before further processing
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0];
+    const { allowed, headers: rateLimitHeaders } = rateLimiter.check(user?.id, ip);
+
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
+        status: 429,
+        headers: { ...corsHeaders, ...rateLimitHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Parse request body
     const body = await req.json();
 
     // Validate query configuration
     const configValidation = validateQueryConfig(body);
     if (!configValidation.success) {
-      return createErrorResponse(
+      return createRAGErrorResponse(
         createRAGError(
           'INVALID_QUERY',
-          `Invalid query configuration: ${configValidation.error.message}`
+          `Invalid query configuration: ${configValidation.error.errors.map(e => e.message).join(', ')}`
         ),
         requestId
       );
     }
 
-    const queryConfig: RAGQueryConfig = configValidation.data;
+    const queryConfig: RAGQueryConfig = configValidation.data as RAGQueryConfig;
 
     // Record request metrics
     metricsCollector.recordRequest({
@@ -205,7 +220,7 @@ serve(async (req: Request) => {
     });
 
     return new Response(JSON.stringify(batchResponse), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, ...rateLimitHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
   } catch (error) {
@@ -351,6 +366,7 @@ async function storeExecution(
  */
 function createErrorResponse(error: any, requestId: string): Response {
   const errorResponse = createRAGErrorResponse(error, 'orchestrator');
+  const corsHeaders = getCorsHeaders('*'); // Use a generic origin for error responses
 
   return new Response(
     JSON.stringify({

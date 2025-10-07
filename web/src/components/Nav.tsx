@@ -14,6 +14,8 @@ const publicLinks = [
   { href: "/reranking-demo", label: "Re-ranking Demo" },
   { href: "/two-stage-retrieval-demo", label: "Two-Stage Pipeline" },
   { href: "/metadata-dashboard", label: "Metadata Dashboard" },
+  { href: "/performance-monitoring", label: "Performance Monitoring" },
+  { href: "/security-dashboard", label: "Security Dashboard" },
 ];
 
 const authLinks = [

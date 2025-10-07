@@ -11,6 +11,8 @@
 
 import { QueryClassificationService, QueryClassificationResult, RetrievalStrategy } from './queryClassificationService';
 import { RetrievalStrategyService, StrategySelectionResult } from './retrievalStrategyService';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { PipelineOrchestrator } from '../../../supabase/functions/_shared/pipelineOrchestrator';
 
 /**
  * Agentic RAG configuration
@@ -81,10 +83,11 @@ export interface AgenticRAGResponse {
 export class AgenticRAGService {
   private queryClassificationService: QueryClassificationService;
   private strategyService: RetrievalStrategyService;
+  private orchestrator: PipelineOrchestrator;
   private config: Required<AgenticRAGConfig>;
   private cache: Map<string, AgenticRAGResponse>;
 
-  constructor(config: AgenticRAGConfig) {
+  constructor(config: AgenticRAGConfig, supabaseClient: SupabaseClient) {
     this.config = {
       enableQueryClassification: true,
       enableStrategySelection: true,
@@ -99,6 +102,7 @@ export class AgenticRAGService {
 
     this.queryClassificationService = new QueryClassificationService(config.openaiApiKey);
     this.strategyService = new RetrievalStrategyService();
+    this.orchestrator = new PipelineOrchestrator({ enableLogging: true }, supabaseClient);
     this.cache = new Map();
   }
 
@@ -216,17 +220,25 @@ export class AgenticRAGService {
     classification: QueryClassificationResult,
     strategy: StrategySelectionResult
   ): Promise<any[]> {
-    // This is a placeholder implementation
-    // In a real implementation, this would call the appropriate retrieval services
-    // based on the selected strategy
-    
     console.log(`Executing ${strategy.selectedStrategy} retrieval strategy`);
     console.log('Strategy parameters:', strategy.parameters);
+
+    // Instead of mock results, invoke the actual RAG technique via the orchestrator
+    const response = await this.orchestrator.executeTechnique(strategy.selectedStrategy as any, {
+      query: request.query,
+      domainId: request.domainId,
+      documentIds: request.documentIds,
+      user_id: request.userId,
+      request_id: crypto.randomUUID(),
+      ...strategy.parameters,
+    });
+
+    if (response.status === 'failed') {
+      console.error(`Retrieval for strategy ${strategy.selectedStrategy} failed:`, response.error);
+      return [];
+    }
     
-    // Simulate retrieval results based on strategy
-    const mockResults = this.generateMockResults(strategy, classification);
-    
-    return mockResults;
+    return response.source_chunks || [];
   }
 
   /**
@@ -259,36 +271,8 @@ export class AgenticRAGService {
    * Generate mock results for testing
    */
   private generateMockResults(strategy: StrategySelectionResult, classification: QueryClassificationResult): any[] {
-    const baseResults = [
-      {
-        id: 'mock1',
-        content: 'This is a mock result for testing the agentic RAG system.',
-        score: 0.95,
-        source: 'test-document-1',
-        metadata: { type: 'mock', strategy: strategy.selectedStrategy }
-      },
-      {
-        id: 'mock2',
-        content: 'Another mock result demonstrating the classification and strategy selection.',
-        score: 0.87,
-        source: 'test-document-2',
-        metadata: { type: 'mock', strategy: strategy.selectedStrategy }
-      }
-    ];
-
-    // Adjust results based on strategy
-    switch (strategy.selectedStrategy) {
-      case 'multi_pass':
-        return [...baseResults, ...baseResults.map(r => ({ ...r, id: r.id + '_pass2' }))];
-      case 'hybrid_approach':
-        return baseResults.map(r => ({ ...r, hybridScore: r.score * 0.9 }));
-      case 'iterative_refine':
-        return baseResults.map(r => ({ ...r, iteration: 1, refinedScore: r.score }));
-      case 'decompose_synthesize':
-        return baseResults.map(r => ({ ...r, subQuery: 'main', synthesisScore: r.score }));
-      default:
-        return baseResults;
-    }
+    // This method is now deprecated in favor of executeRetrieval
+    return [];
   }
 
   /**
